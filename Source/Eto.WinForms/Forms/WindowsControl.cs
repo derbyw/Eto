@@ -10,7 +10,7 @@ using Eto.WinForms.Forms.Menu;
 
 namespace Eto.WinForms.Forms
 {
-	public interface IWindowsControl
+	public interface IWindowsControl: Control.IHandler
 	{
 		bool InternalVisible { get; }
 
@@ -31,6 +31,8 @@ namespace Eto.WinForms.Forms
 		bool XScale { get; }
 
 		bool YScale { get; }
+
+		bool BackgroundColorSet { get; }
 
 		Control.ICallback Callback { get; }
 
@@ -91,6 +93,78 @@ namespace Eto.WinForms.Forms
 		where TWidget : Control
 		where TCallback : Control.ICallback
 	{
+
+		// used in DrawableHandler
+		public class PanelBase<THandler> : swf.Panel
+			where THandler: WindowsControl<TControl, TWidget, TCallback>
+		{
+			public THandler Handler { get; set; }
+
+			public PanelBase( THandler handler = null )
+			{
+				Handler = handler;
+				Size = sd.Size.Empty;
+				MinimumSize = sd.Size.Empty;
+				AutoSize = true;
+				AutoSizeMode = swf.AutoSizeMode.GrowAndShrink;
+			}
+
+			public override sd.Size GetPreferredSize(sd.Size proposedSize)
+			{
+				var userSize = Handler.UserDesiredSize;
+				var size = userSize.Width >= 0 && userSize.Height >= 0 ? sd.Size.Empty
+					: base.GetPreferredSize(proposedSize);
+				if (userSize.Width >= 0)
+					size.Width = Math.Max(userSize.Width, MinimumSize.Width);
+				if (userSize.Height >= 0)
+					size.Height = Math.Max(userSize.Height, MinimumSize.Height);
+				return size;
+			}
+			// Need to override IsInputKey to capture 
+			// the arrow keys.
+			protected override bool IsInputKey(swf.Keys keyData)
+			{
+				switch (keyData & swf.Keys.KeyCode)
+				{
+					case swf.Keys.Up:
+					case swf.Keys.Down:
+					case swf.Keys.Left:
+					case swf.Keys.Right:
+					case swf.Keys.Back:
+						return true;
+					default:
+						return base.IsInputKey(keyData);
+				}
+			}
+		}
+
+		// used in Panel+PixelLayout and similar code is in TableLayout
+		public class EtoPanel<THandler> : PanelBase<THandler>
+			where THandler : WindowsControl<TControl, TWidget, TCallback>
+		{
+			public EtoPanel( THandler handler = null )
+				: base( handler )
+			{ }
+
+			// optimization especially for content on drawable
+			protected override void OnBackColorChanged( EventArgs e )
+			{
+				SetStyle
+					( swf.ControlStyles.AllPaintingInWmPaint
+					| swf.ControlStyles.DoubleBuffer
+					, BackColor.A != 255 );
+				base.OnBackColorChanged( e );
+			}
+			protected override void OnParentBackColorChanged( EventArgs e )
+			{
+				SetStyle
+					( swf.ControlStyles.AllPaintingInWmPaint
+					| swf.ControlStyles.DoubleBuffer
+					, BackColor.A != 255 );
+				base.OnParentBackColorChanged( e );
+			}
+		}
+
 		bool dragEnabled = false;
 		Size parentMinimumSize;
 
@@ -315,14 +389,25 @@ namespace Eto.WinForms.Forms
 				case Eto.Forms.Control.LostFocusEvent:
 					Control.LostFocus += (sender, e) => Callback.OnLostFocus(Widget, EventArgs.Empty);
 					break;
-
+				case Eto.Forms.Control.ShownEvent:
+					bool? last = null;
+					Control.VisibleChanged += (sender, e) =>
+					{
+						var visible = Control.Visible;
+						if (last == visible || !Widget.Loaded)
+							return;
+						last = visible;
+						if (visible)
+							Callback.OnShown(Widget, EventArgs.Empty);
+					};
+					break;
 				case Eto.Forms.Control.DragDropEvent:
 					Control.DragDrop += (sender, e) =>
 					{
 						Callback.OnDragDrop(Widget, GetDragData(e));
 					};
 					break;
-				case Eto.Forms.Control.DragOverEvent:                  
+				case Eto.Forms.Control.DragOverEvent:
 
 					Control.DragEnter += (sender, e) =>
 					{
@@ -335,7 +420,6 @@ namespace Eto.WinForms.Forms
 						}
 					};
 					break;
-
 				default:
 					base.AttachEvent(id);
 					break;
@@ -475,20 +559,29 @@ namespace Eto.WinForms.Forms
 			}
 		}
 
-		public virtual void Invalidate()
+		public virtual void Invalidate(bool invalidateChildren)
 		{
-			Control.Invalidate(true);
+			Control.Invalidate(invalidateChildren);
 		}
 
-		public virtual void Invalidate(Rectangle rect)
+		public virtual void Invalidate(Rectangle rect, bool invalidateChildren)
 		{
-			Control.Invalidate(rect.ToSD(), true);
+			Control.Invalidate(rect.ToSD(), invalidateChildren);
 		}
 
 		public virtual Color BackgroundColor
 		{
 			get { return Control.BackColor.ToEto(); }
-			set { Control.BackColor = value.ToSD(); }
+			set { backgroundColorSet = true; Control.BackColor = value.ToSD(); }
+		}
+		bool backgroundColorSet;
+		public bool BackgroundColorSet {
+			get { return backgroundColorSet;  }
+			set
+			{
+				if (!( backgroundColorSet = value ))
+					Control.BackColor = sd.Color.Empty;
+			}
 		}
 
 		public virtual void SuspendLayout()
@@ -558,7 +651,29 @@ namespace Eto.WinForms.Forms
 		public virtual void OnLoad(EventArgs e)
 		{
 			SetMinimumSizeInternal(false);
+
+			if (Widget.VisualParent?.Loaded != false && !(Widget is Window))
+			{
+				// adding dynamically or loading without a parent (e.g. embedding into a native app)
+				Application.Instance.AsyncInvoke(FireOnShown);
+			}
 		}
+
+		static void FireOnShown(Control control)
+		{
+			if (!control.Visible)
+				return;
+			var handler = control.Handler as IWindowsControl;
+			handler?.Callback.OnShown(control, EventArgs.Empty);
+
+			foreach (var ctl in control.VisualControls)
+			{
+				if (ctl.Visible)
+					FireOnShown(ctl);
+			}
+		}
+
+		protected void FireOnShown() => FireOnShown(Widget);
 
 		public virtual void OnLoadComplete(EventArgs e)
 		{
@@ -712,6 +827,14 @@ namespace Eto.WinForms.Forms
 			get { return Control.ForeColor.ToEto(); }
 			set { Control.ForeColor = value.ToSD(); }
 		}
+
+		public virtual int TabIndex
+		{
+			get { return Control.TabIndex == 0 ? int.MaxValue : Control.TabIndex - 1; }
+			set { Control.TabIndex = value == int.MaxValue ? 0 : value + 1; }
+		}
+
+		public virtual IEnumerable<Control> VisualControls => Enumerable.Empty<Control>();
 
 		public bool AllowDrag
 		{

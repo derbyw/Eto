@@ -83,6 +83,29 @@ namespace Eto.Forms
 			Properties.TriggerEvent(TerminatingEvent, this, e);
 		}
 
+		/// <summary>
+		/// Identifier for handlers when attaching the <see cref="UnhandledException"/> event
+		/// </summary>
+		public const string UnhandledExceptionEvent = "Application.UnhandledException";
+
+		/// <summary>
+		/// Occurs when an unhandled exception occcurs.
+		/// </summary>
+		public event EventHandler<UnhandledExceptionEventArgs> UnhandledException
+		{
+			add { Properties.AddHandlerEvent(UnhandledExceptionEvent, value); }
+			remove { Properties.RemoveEvent(UnhandledExceptionEvent, value); }
+		}
+
+		/// <summary>
+		/// Raises the unhandled exception event.
+		/// </summary>
+		/// <param name="e">Event arguments.</param>
+		protected virtual void OnUnhandledException(UnhandledExceptionEventArgs e)
+		{
+			Properties.TriggerEvent(UnhandledExceptionEvent, this, e);
+		}
+
 		new IHandler Handler { get { return (IHandler)base.Handler; } }
 
 		Form mainForm;
@@ -139,7 +162,8 @@ namespace Eto.Forms
 		static Application()
 		{
 			EventLookup.Register<Application>(c => c.OnTerminating(null), Application.TerminatingEvent);
-		}
+			EventLookup.Register<Application>(c => c.OnUnhandledException(null), Application.UnhandledExceptionEvent);
+}
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="Eto.Forms.Application"/> class.
@@ -155,7 +179,7 @@ namespace Eto.Forms
 		/// <seealso cref="Platforms"/>
 		/// <param name="platformType">Platform type to initialize this application with</param>
 		public Application(string platformType)
-			: this(Platform.Get(platformType))
+			: this(Platform.Get(platformType, false))
 		{
 		}
 
@@ -382,6 +406,11 @@ namespace Eto.Forms
 			/// Raises the terminating event.
 			/// </summary>
 			void OnTerminating(Application widget, CancelEventArgs e);
+
+			/// <summary>
+			/// Raises the unhandled exception event.
+			/// </summary>
+			void OnUnhandledException(Application widget, UnhandledExceptionEventArgs e);
 		}
 
 		/// <summary>
@@ -394,14 +423,25 @@ namespace Eto.Forms
 			/// </summary>
 			public void OnInitialized(Application widget, EventArgs e)
 			{
-				widget.Platform.Invoke(() => widget.OnInitialized(e));
+				using (widget.Platform.Context)
+					widget.OnInitialized(e);
 			}
 			/// <summary>
 			/// Raises the terminating event.
 			/// </summary>
 			public void OnTerminating(Application widget, CancelEventArgs e)
 			{
-				widget.Platform.Invoke(() => widget.OnTerminating(e));
+				using (widget.Platform.Context)
+					widget.OnTerminating(e);
+			}
+
+			/// <summary>
+			/// Raises the unhandled exception event.
+			/// </summary>
+			public void OnUnhandledException(Application widget, UnhandledExceptionEventArgs e)
+			{
+				using (widget.Platform.Context)
+					widget.OnUnhandledException(e);
 			}
 		}
 

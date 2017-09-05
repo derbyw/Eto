@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Eto.Forms;
 using System.Diagnostics;
+using System.Reflection;
 using sw = System.Windows;
 using swm = System.Windows.Media;
 using System.Threading;
@@ -76,12 +77,12 @@ namespace Eto.Wpf.Forms
 				return;
 
 			// Support (better) high DPI in the NumericUpDown control by theming the Extended WPF Toolkit's spinner.
-			Control.Resources.MergedDictionaries.Add(new sw.ResourceDictionary { Source = new Uri("pack://application:,,,/Eto.Wpf;component/themes/wpftoolkit/ButtonSpinner.xaml", UriKind.RelativeOrAbsolute) });
+			var assemblyName = typeof(ApplicationHandler).Assembly.GetName().Name;
+			Control.Resources.MergedDictionaries.Add(new sw.ResourceDictionary { Source = new Uri($"pack://application:,,,/{assemblyName};component/themes/wpftoolkit/ButtonSpinner.xaml", UriKind.RelativeOrAbsolute) });
 		}
 
 		protected override void Initialize()
 		{
-			base.Initialize();
 			Control = sw.Application.Current;
 			if (Control == null)
 			{
@@ -92,6 +93,20 @@ namespace Eto.Wpf.Forms
 			instance = this;
 			Control.Startup += HandleStartup;
 			ApplyThemes();
+			base.Initialize();
+		}
+
+		void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+		{
+			var unhandledExceptionArgs = new UnhandledExceptionEventArgs(e.Exception, true);
+			Callback.OnUnhandledException(Widget, unhandledExceptionArgs);
+			e.Handled = true;
+		}
+
+		void OnCurrentDomainUnhandledException(object sender, System.UnhandledExceptionEventArgs e)
+		{
+			var unhandledExceptionArgs = new UnhandledExceptionEventArgs(e.ExceptionObject, e.IsTerminating);
+			Callback.OnUnhandledException(Widget, unhandledExceptionArgs);
 		}
 
 		void HandleStartup(object sender, sw.StartupEventArgs e)
@@ -231,6 +246,10 @@ namespace Eto.Wpf.Forms
 			{
 				case Application.TerminatingEvent:
 					// handled by WpfWindow
+					break;
+				case Application.UnhandledExceptionEvent:
+					AppDomain.CurrentDomain.UnhandledException += OnCurrentDomainUnhandledException;
+					sw.Application.Current.DispatcherUnhandledException += OnDispatcherUnhandledException;
 					break;
 				default:
 					base.AttachEvent(id);

@@ -82,7 +82,6 @@
     <Compile Include="Sections\Layouts\TableLayoutSection\SpacingSection.cs" />
     <Compile Include="Sections\Printing\PrintDialogSection.cs" />
     <Compile Include="TestApplication.cs" />
-    <Compile Include="Dialogs\About.cs" />
     <Compile Include="Sections\Controls\ButtonSection.cs" />
     <Compile Include="Sections\Controls\CheckBoxSection.cs" />
     <Compile Include="Sections\Controls\ComboBoxSection.cs" />
@@ -92,7 +91,7 @@
     <Compile Include="Sections\Controls\GroupBoxSection.cs" />
     <Compile Include="Sections\Controls\LabelSection.cs" />
     <Compile Include="Sections\Controls\ListBoxSection.cs" />
-    <Compile Include="Sections\Controls\NumericUpDownSection.cs" />
+    <Compile Include="Sections\Controls\NumericStepperSection.cs" />
     <Compile Include="Sections\Controls\RadioButtonSection.cs" />
     <Compile Include="Sections\Controls\ScrollableSection.cs" />
     <Compile Include="Sections\Controls\SliderSection.cs" />
@@ -112,7 +111,7 @@
     <Compile Include="Sections\Controls\ProgressBarSection.cs" />
     <Compile Include="Sections\Controls\KitchenSinkSection.cs" />
     <Compile Include="Sections\Controls\GridCellFormattingSection.cs" />
-    <Compile Include="Sections\Dialogs\CustomDialogSection.cs" />
+    <Compile Include="Sections\Dialogs\DialogSection.cs" />
     <Compile Include="Sections\Drawing\InterpolationSection.cs" />
     <Compile Include="Sections\Serialization\Xaml\Test.cs" />
     <Compile Include="Sections\Serialization\Json\Test.cs" />
@@ -122,7 +121,6 @@
     <Compile Include="Sections\Dialogs\FontDialogSection.cs" />
     <Compile Include="Sections\Drawing\TransformSection.cs" />
     <Compile Include="Sections\Drawing\BrushSection.cs" />
-    <Compile Include="TestIcons.cs" />
     <Compile Include="Sections\Drawing\ClearSection.cs" />
     <Compile Include="Sections\Controls\RadioButtonListSection.cs" />
     <Compile Include="Sections\Behaviors\ScreenSection.cs" />
@@ -132,12 +130,15 @@
     <Compile Include="Sections\Controls\SplitterSection.cs" />
     <Compile Include="Sections\Controls\SpinnerSection.cs" />
     <Compile Include="Sections\Drawing\DrawLoopSection.cs" />
+    <Compile Include="UnitTests\Drawing\BrushTests.cs" />
     <Compile Include="UnitTests\Drawing\ClipTests.cs" />
     <Compile Include="UnitTests\Drawing\DefaultValueTests.cs" />
+    <Compile Include="UnitTests\Drawing\FontTests.cs" />
     <Compile Include="UnitTests\Drawing\GraphicsTests.cs" />
     <Compile Include="UnitTests\Drawing\MatrixTests.cs" />
     <Compile Include="UnitTests\Forms\Controls\ComboBoxTests.cs" />
-    <Compile Include="UnitTests\Forms\Controls\NumericUpDownTests.cs" />
+    <Compile Include="UnitTests\Forms\Controls\NumericStepperTests.cs" />
+    <Compile Include="UnitTests\Forms\Controls\PanelTests.cs" />
     <Compile Include="UnitTests\Forms\Controls\SplitterTests.cs" />
     <Compile Include="UnitTests\Forms\GridViewUtils.cs" />
     <Compile Include="UnitTests\Forms\RangeTests.cs" />
@@ -153,7 +154,6 @@
     <Compile Include="UnitTests\Handlers\Drawing\TestGraphicsHandler.cs" />
     <Compile Include="UnitTests\Handlers\Drawing\TestMatrixHandler.cs" />
     <Compile Include="MainForm.cs" />
-    <Compile Include="UnitTests\TestUtils.cs" />
     <Compile Include="UnitTests\Handlers\TestPlatform.cs" />
     <Compile Include="Sections\Controls\ColorPickerSection.cs" />
     <Compile Include="UnitTests\Forms\FilterCollectionTests.cs" />
@@ -194,28 +194,57 @@
     <Compile Include="UnitTests\Forms\Layout\DynamicLayoutTests.cs" />
     <Compile Include="Sections\Layouts\ScrollingLayouts\TablePaddingAndSpacingSection.cs" />
     <Compile Include="UnitTests\Forms\TestClasses.cs" />
+    <Compile Include="UnitTests\Forms\Controls\ImageViewTests.cs" />
+    <Compile Include="UnitTests\Forms\WindowTests.cs" />
+    <Compile Include="UnitTests\Forms\Controls\ControlEventTests.cs" />
+    <Compile Include="TestIcons.cs" />
+    <Compile Include="Sections\Drawing\IconFrameSection.cs" />
+    <Compile Include="UnitTests\Drawing\IconTests.cs" />
+    <Compile Include="UnitTests\TestBase.cs" />
+    <Compile Include="UnitTests\Forms\DataContextTests.cs" />
+    <Compile Include="UnitTests\Forms\Controls\SliderTests.cs" />
+    <Compile Include="Sections\Dialogs\AboutDialogSection.cs" />
+    <Compile Include="Sections\Controls\StepperSection.cs" />
+    <Compile Include="Sections\Controls\TextStepperSection.cs" />
+    <Compile Include="UnitTests\Forms\Binding\PropertyBindingTests.cs" />
+    <Compile Include="Sections\Controls\FilePickerSection.cs" />
+    <Compile Include="Sections\Controls\FontPickerSection.cs" />
+    <Compile Include="Sections\Dialogs\OpenWithDialogSection.cs" />
+    <Compile Include="Sections\Controls\DocumentControlSection.cs" />
+    <Compile Include="Sections\Behaviors\NotificationSection.cs" />
+    <Compile Include="Sections\Controls\MaskedTextStepperSection.cs" />
+    <Compile Include="UnitTests\Forms\Controls\TextBoxTests.cs" />
+    <Compile Include="UnitTests\Forms\Controls\RichTextAreaTests.cs" />
+    <Compile Include="Sections\Behaviors\TabIndexSection.cs" />
+    <Compile Include="UnitTests\Forms\Controls\ControlTests.cs" />
+    <Compile Include="UnitTests\Forms\Controls\GridViewTests.cs" />
+    <Compile Include="UnitTests\Forms\Controls\TreeGridViewTests.cs" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="TestIcon.ico" />
     <EmbeddedResource Include="Sections\Serialization\Json\Test.json">
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="Textures.gif" />
-    <EmbeddedResource Include="Sections\Serialization\Xaml\Test.xaml">
+    <EmbeddedResource Include="Sections\Serialization\Xaml\Test.xeto">
       <SubType>Designer</SubType>
     </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="TestImage.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="Textures.png" />
+    <EmbeddedResource Include="Images\TestIcon.ico" />
+    <EmbeddedResource Include="Images\TestImage.png" />
+    <EmbeddedResource Include="Images\Textures.gif" />
+    <EmbeddedResource Include="Images\Textures.png" />
+    <EmbeddedResource Include="Images\Logo.png" />
+    <EmbeddedResource Include="Images\Logo%402x.png" />
+    <EmbeddedResource Include="Images\Logo%403x.png" />
+    <EmbeddedResource Include="Images\Logo%400.5x.png" />
+    <EmbeddedResource Include="Images\Logo%401.5x.png" />
   </ItemGroup>
   <ProjectExtensions>
     <MonoDevelop>
       <Properties>
         <Policies>
-          <DotNetNamingPolicy DirectoryNamespaceAssociation="PrefixedHierarchical" ResourceNamePolicy="MSBuild" />
+          <DotNetNamingPolicy DirectoryNamespaceAssociation="PrefixedHierarchical" ResourceNamePolicy="MSBuild">
+            <inheritsSet />
+            <inheritsScope />
+          </DotNetNamingPolicy>
         </Policies>
       </Properties>
     </MonoDevelop>
@@ -244,11 +273,12 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="nunit.framework">
-      <HintPath>..\..\packages\NUnit.3.0.0\lib\portable-net45+win8+wp8+wpa81+Xamarin.Mac+MonoAndroid10+MonoTouch10+Xamarin.iOS10\nunit.framework.dll</HintPath>
+      <HintPath>..\..\packages\NUnit.3.4.1\lib\portable-net45+win8+wp8+wpa81+Xamarin.Mac+MonoAndroid10+MonoTouch10+Xamarin.iOS10\nunit.framework.dll</HintPath>
     </Reference>
     <Reference Include="Portable.Xaml">
-      <HintPath>..\..\packages\Portable.Xaml.0.7.0\lib\portable-net45+win+wpa81+wp80+MonoAndroid10+xamarinios10+MonoTouch10\Portable.Xaml.dll</HintPath>
+      <HintPath>..\..\packages\Portable.Xaml.0.14.0\lib\portable-net45+win+wpa81+wp80+MonoAndroid10+xamarinios10+MonoTouch10\Portable.Xaml.dll</HintPath>
     </Reference>
   </ItemGroup>
   <Import Project="..\..\Shared\Common.targets" />
+  <ItemGroup />
 </Project>

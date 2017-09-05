@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Eto.Forms;
 using Eto.Drawing;
 using swc = System.Windows.Controls;
@@ -8,28 +8,29 @@ using sw = System.Windows;
 
 namespace Eto.Wpf.Forms.Controls
 {
+	public class EtoLabel : swc.Label
+	{
+		public LabelHandler Handler { get; set; }
+		protected override void OnAccessKey(swi.AccessKeyEventArgs e)
+		{
+			// move focus to the next control after the label
+			var tRequest = new swi.TraversalRequest(swi.FocusNavigationDirection.Next);
+			MoveFocus(tRequest);
+		}
+
+		protected override sw.Size MeasureOverride(sw.Size constraint)
+		{
+			var size = Handler.MeasureOverride(constraint, base.MeasureOverride);
+			size.Width += 1;
+			return size;
+		}
+	}
+
 	public class LabelHandler : WpfControl<swc.Label, Label, Label.ICallback>, Label.IHandler
 	{
 		readonly swc.AccessText accessText;
 		sw.Size? previousRenderSize;
 		string text;
-
-		public class EtoLabel : swc.Label
-		{
-			protected override void OnAccessKey(swi.AccessKeyEventArgs e)
-			{
-				// move focus to the next control after the label
-				var tRequest = new swi.TraversalRequest(swi.FocusNavigationDirection.Next);
-				MoveFocus(tRequest);
-			}
-
-			protected override sw.Size MeasureOverride(sw.Size constraint)
-			{
-				var size = base.MeasureOverride(constraint);
-				size.Width += 1;
-				return size;
-			}
-		}
 
 		protected override void SetDecorations(sw.TextDecorationCollection decorations)
 		{
@@ -41,6 +42,7 @@ namespace Eto.Wpf.Forms.Controls
 			accessText = new swc.AccessText();
 			Control = new EtoLabel
 			{
+				Handler = this,
 				Padding = new sw.Thickness(0),
 				Content = accessText
 			};
@@ -50,6 +52,16 @@ namespace Eto.Wpf.Forms.Controls
 
 		void Control_SizeChanged(object sender, sw.SizeChangedEventArgs e)
 		{
+			if (previousRenderSize == null)
+			{
+				// don't update preferred sizes when called the first time.
+				// when there's many labels this causes a major slowdown
+				// the initial size should already have been taken care of by 
+				// the initial layout pass.
+				previousRenderSize = Control.RenderSize;
+				return;
+			}
+
 			if (previousRenderSize == Control.RenderSize)
 				return;
 			// update parents only when the render size has changed
@@ -138,7 +150,6 @@ namespace Eto.Wpf.Forms.Controls
         public override void UpdatePreferredSize()
         {
             ParentMinimumSize = WpfConversions.ZeroSize;
-            SetSize();
             base.UpdatePreferredSize();
         }
 

@@ -13,6 +13,7 @@ namespace Eto.GtkSharp.Forms.Controls
 		int? position;
 		double relative = double.NaN;
 		int suppressSplitterMoved;
+		int _panel1MinimumSize, _panel2MinimumSize;
 
 		int GetPreferredPanelSize(int width1, int width2)
 		{
@@ -87,8 +88,9 @@ namespace Eto.GtkSharp.Forms.Controls
 				}
 				it.suppressSplitterMoved++;
 				base.OnSizeAllocated(allocation);
-				it.SetRelative(it.relative);
 				it.suppressSplitterMoved--;
+
+				Handler.EnsurePosition();
 			}
 		}
 
@@ -139,8 +141,9 @@ namespace Eto.GtkSharp.Forms.Controls
 				}
 				it.suppressSplitterMoved++;
 				base.OnSizeAllocated(allocation);
-				it.SetRelative(it.relative);
 				it.suppressSplitterMoved--;
+
+				Handler.EnsurePosition();
 			}
 		}
 
@@ -225,6 +228,7 @@ namespace Eto.GtkSharp.Forms.Controls
 				position = null;
 				if (Control.IsRealized)
 					SetRelative(value);
+				EnsurePosition();
 				Callback.OnPositionChanged(Widget, EventArgs.Empty);
 			}
 		}
@@ -299,23 +303,21 @@ namespace Eto.GtkSharp.Forms.Controls
 		void Create()
 		{
 			Gtk.Paned old = Control;
+
 			if (orientation == Orientation.Horizontal)
 				Control = new EtoHPaned() { Handler = this };
 			else
 				Control = new EtoVPaned() { Handler = this };
 
 			Control.ShowAll();
-			Control.Realized += (sender, e) =>
-			{
-				SetInitialPosition();
-				HookEvents();
-			};
+			Control.Realized += Control_Realized;
 
 			if (container.Child != null)
 				container.Remove(container.Child);
 
 			if (old != null)
 			{
+				old.Realized -= Control_Realized;
 				var child1 = old.Child1;
 				var child2 = old.Child2;
 				old.Remove(child2);
@@ -333,16 +335,30 @@ namespace Eto.GtkSharp.Forms.Controls
 			container.Child = Control;
 		}
 
+		void Control_Realized(object sender, EventArgs e)
+		{
+			SetInitialPosition();
+			HookEvents();
+		}
+
 		void HookEvents()
 		{
-			Control.AddNotification("position", (o, args) =>
-			{
-				if (!Widget.Loaded || suppressSplitterMoved > 0)
-					return;
-				// keep track of the desired position (for removing/re-adding/resizing the control)
-				UpdateRelative();
-				Callback.OnPositionChanged(Widget, EventArgs.Empty);
-			});
+			if (EtoEnvironment.Platform.IsMac)
+				Control.AddNotification("position", PositionChangedBefore); // macOS throw NRE when resizing the window without this
+			Control.AddNotification("position", PositionChanged);
+		}
+
+		[GLib.ConnectBefore]
+		void PositionChangedBefore(object o, GLib.NotifyArgs args) => PositionChanged(o, args);
+
+		void PositionChanged(object o, GLib.NotifyArgs args)
+		{
+			if (!Widget.Loaded || suppressSplitterMoved > 0)
+				return;
+			// keep track of the desired position (for removing/re-adding/resizing the control)
+			UpdateRelative();
+			EnsurePosition();
+			Callback.OnPositionChanged(Widget, EventArgs.Empty);
 		}
 
 		public override void AttachEvent(string id)
@@ -444,6 +460,18 @@ namespace Eto.GtkSharp.Forms.Controls
 
 		}
 
+		void EnsurePosition()
+		{
+			var size = Orientation == Orientation.Horizontal ? Widget.Width : Widget.Height;
+			if (size <= 0)
+				return;
+
+			if (_panel1MinimumSize + _panel2MinimumSize > size || Control.Position < _panel1MinimumSize)
+				Control.Position = _panel1MinimumSize;
+			else if (Position > size - _panel2MinimumSize)
+				Control.Position = size - _panel2MinimumSize;
+		}
+
 		static Gtk.Widget EmptyContainer()
 		{
 			var bin = new Gtk.VBox();
@@ -481,6 +509,32 @@ namespace Eto.GtkSharp.Forms.Controls
 				if (setposition)
 					Control.Position = position.Value;
 				widget.ShowAll();
+			}
+		}
+
+		public int Panel1MinimumSize
+		{
+			get
+			{
+				return _panel1MinimumSize;
+			}
+			set
+			{
+				_panel1MinimumSize = value;
+				EnsurePosition();
+			}
+		}
+
+		public int Panel2MinimumSize
+		{
+			get
+			{
+				return _panel2MinimumSize;
+			}
+			set
+			{
+				_panel2MinimumSize = value;
+				EnsurePosition();
 			}
 		}
 	}

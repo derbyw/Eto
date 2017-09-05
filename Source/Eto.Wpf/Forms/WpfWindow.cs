@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using Eto.Forms;
 using Eto.Drawing;
@@ -9,6 +9,8 @@ using swi = System.Windows.Input;
 using Eto.Wpf.CustomControls;
 using Eto.Wpf.Forms.Menu;
 using System.ComponentModel;
+using System.Reflection;
+using System.Collections.Generic;
 
 namespace Eto.Wpf.Forms
 {
@@ -35,16 +37,24 @@ namespace Eto.Wpf.Forms
 		swc.DockPanel main;
 		swc.ContentControl menuHolder;
 		swc.ContentControl toolBarHolder;
-		swc.DockPanel content;
+		protected swc.DockPanel content;
 		Size? initialClientSize;
 		bool resizable = true;
 		bool maximizable = true;
 		bool minimizable = true;
+		PerMonitorDpiHelper dpiHelper;
+		Point? initialLocation;
 
 		public override IntPtr NativeHandle
 		{
 			get { return new System.Windows.Interop.WindowInteropHelper(Control).EnsureHandle(); }
 		}
+
+		public static bool EnablePerMonitorDpiSupport { get; set; } = true;
+
+		public swc.DockPanel ContentPanel { get { return content; } }
+
+		public swc.DockPanel MainPanel { get { return main; } }
 
 		protected override void Initialize()
 		{
@@ -74,7 +84,8 @@ namespace Eto.Wpf.Forms
 				}
 				// stop form from auto-sizing after it is shown
 				Control.SizeToContent = sw.SizeToContent.Manual;
-				Control.MoveFocus(new swi.TraversalRequest(swi.FocusNavigationDirection.Next));
+				if (Control.ShowActivated)
+					Control.MoveFocus(new swi.TraversalRequest(swi.FocusNavigationDirection.Next));
 			};
 			Control.PreviewKeyDown += (sender, e) =>
 			{
@@ -88,10 +99,23 @@ namespace Eto.Wpf.Forms
 			HandleEvent(Window.ClosingEvent);
 		}
 
+		void SetupPerMonitorDpi()
+		{
+			if (EnablePerMonitorDpiSupport && dpiHelper == null && Win32.PerMonitorDpiSupported)
+			{
+				dpiHelper = new PerMonitorDpiHelper(Control);
+
+				if (!PerMonitorDpiHelper.BuiltInPerMonitorSupported)
+					dpiHelper.ScaleChanged += (sender, e) => SetMinimumSize();
+			}
+		}
+
 		protected override void SetContentScale(bool xscale, bool yscale)
 		{
 			base.SetContentScale(true, true);
 		}
+
+		static EventInfo dpiChangedEvent = typeof(sw.Window).GetEvent("DpiChanged");
 
 		public override void AttachEvent(string id)
 		{
@@ -128,7 +152,7 @@ namespace Eto.Wpf.Forms
 							app.Callback.OnTerminating(app.Widget, args);
 						}
 						e.Cancel = args.Cancel;
-						IsApplicationClosing = !args.Cancel 
+						IsApplicationClosing = !args.Cancel
 							&& sw.Application.Current.MainWindow == Control
 							&& sw.Application.Current.ShutdownMode == sw.ShutdownMode.OnMainWindowClose;
 					};
@@ -145,10 +169,26 @@ namespace Eto.Wpf.Forms
 				case Window.LocationChangedEvent:
 					Control.LocationChanged += (sender, e) => Callback.OnLocationChanged(Widget, EventArgs.Empty);
 					break;
+				case Window.LogicalPixelSizeChangedEvent:
+					if (PerMonitorDpiHelper.BuiltInPerMonitorSupported && dpiChangedEvent != null) // .NET 4.6.2 support!
+					{
+						var method = typeof(WpfWindow<TControl, TWidget, TCallback>).GetMethod(nameof(HandleLogicalPixelSizeChanged), BindingFlags.Instance | BindingFlags.NonPublic);
+						dpiChangedEvent.AddEventHandler(Control, Delegate.CreateDelegate(dpiChangedEvent.EventHandlerType, this, method));
+						break;
+					}
+					SetupPerMonitorDpi();
+					if (dpiHelper != null)
+						dpiHelper.ScaleChanged += (sender, e) => Callback.OnLogicalPixelSizeChanged(Widget, EventArgs.Empty);
+					break;
 				default:
 					base.AttachEvent(id);
 					break;
 			}
+		}
+
+		void HandleLogicalPixelSizeChanged(object sender, EventArgs e)
+		{
+			Callback.OnLogicalPixelSizeChanged(Widget, EventArgs.Empty);
 		}
 
 		static bool IsApplicationClosing { get; set; }
@@ -157,6 +197,7 @@ namespace Eto.Wpf.Forms
 		{
 			base.OnLoad(e);
 			SetScale(false, false);
+			SetupPerMonitorDpi();
 		}
 
 		protected virtual void UpdateClientSize(Size size)
@@ -171,10 +212,15 @@ namespace Eto.Wpf.Forms
 		protected override void SetSize()
 		{
 			// don't set the minimum size of a window, just the preferred size
-			ContainerControl.Width = PreferredSize.Width;
-			ContainerControl.Height = PreferredSize.Height;
-			ContainerControl.MinWidth = MinimumSize.Width;
-			ContainerControl.MinHeight = MinimumSize.Height;
+			ContainerControl.Width = UserPreferredSize.Width;
+			ContainerControl.Height = UserPreferredSize.Height;
+			SetMinimumSize();
+		}
+
+		void SetMinimumSize()
+		{
+			ContainerControl.MinWidth = MinimumSize.Width * WpfScale;
+			ContainerControl.MinHeight = MinimumSize.Height * WpfScale;
 		}
 
 		public Eto.Forms.ToolBar ToolBar
@@ -277,29 +323,53 @@ namespace Eto.Wpf.Forms
 			}
 		}
 
+		internal void SetStyle(Win32.WS_EX style, bool value)
+		{
+			var styleInt = Win32.GetWindowLong(WindowHandle, Win32.GWL.EXSTYLE);
+			if (value)
+				styleInt |= (uint)style;
+			else
+				styleInt &= (uint)~style;
+
+			Win32.SetWindowLong(WindowHandle, Win32.GWL.EXSTYLE, styleInt);
+		}
+
+		internal void SetStyle(Win32.WS style, bool value)
+		{
+			var styleInt = Win32.GetWindowLong(WindowHandle, Win32.GWL.STYLE);
+			if (value)
+				styleInt |= (uint)style;
+			else
+				styleInt &= (uint)~style;
+
+			Win32.SetWindowLong(WindowHandle, Win32.GWL.STYLE, styleInt);
+		}
+
+		sw.Interop.WindowInteropHelper windowInterop;
+		IntPtr WindowHandle
+		{
+			get
+			{
+				if (windowInterop == null)
+				{
+					windowInterop = new sw.Interop.WindowInteropHelper(Control);
+					windowInterop.EnsureHandle();
+				}
+				return windowInterop.Handle;
+			}
+		}
+
 		protected virtual void SetResizeMode()
 		{
 			if (resizable)
-				Control.ResizeMode = sw.ResizeMode.CanResizeWithGrip;
+				Control.ResizeMode = sw.ResizeMode.CanResize;
 			else if (minimizable)
 				Control.ResizeMode = sw.ResizeMode.CanMinimize;
 			else
 				Control.ResizeMode = sw.ResizeMode.NoResize;
 
-			var hwnd = new sw.Interop.WindowInteropHelper(Control).Handle;
-			if (hwnd != IntPtr.Zero)
-			{
-				var val = Win32.GetWindowLong(hwnd, Win32.GWL.STYLE);
-				if (maximizable)
-					val |= (uint)Win32.WS.MAXIMIZEBOX;
-				else
-					val &= ~(uint)Win32.WS.MAXIMIZEBOX;
-				if (minimizable)
-					val |= (uint)Win32.WS.MINIMIZEBOX;
-				else
-					val &= ~(uint)Win32.WS.MINIMIZEBOX;
-				Win32.SetWindowLong(hwnd, Win32.GWL.STYLE, val);
-			}
+			SetStyle(Win32.WS.MAXIMIZEBOX, maximizable);
+			SetStyle(Win32.WS.MINIMIZEBOX, minimizable);
 		}
 
 		public virtual bool ShowInTaskbar
@@ -358,7 +428,24 @@ namespace Eto.Wpf.Forms
 
 		public override Size Size
 		{
-			get { return base.Size; }
+			get
+			{
+				var handle = WindowHandle;
+				if (handle != IntPtr.Zero && Widget.Loaded)
+				{
+					// WPF doesn't always report the correct size when maximized
+					Win32.RECT rect;
+					if (Win32.GetWindowRect(handle, out rect))
+					{
+						var scale = DpiScale;
+						return new Size(
+							(int)Math.Round(rect.width * scale),
+							(int)Math.Round(rect.height * scale)
+							);
+					}
+				}
+				return base.Size;
+			}
 			set
 			{
 				Control.SizeToContent = sw.SizeToContent.Manual;
@@ -385,23 +472,78 @@ namespace Eto.Wpf.Forms
 			set { Widget.Properties.Set(LocationSet_Key, value); }
 		}
 
+		System.Windows.Forms.Screen SwfScreen
+		{
+			get
+			{
+				var handle = WindowHandle;
+				if (handle == IntPtr.Zero)
+					return System.Windows.Forms.Screen.PrimaryScreen;
+				return System.Windows.Forms.Screen.FromHandle(handle);
+			}
+		}
+
+		double DpiScale => sw.PresentationSource.FromVisual(Control)?.CompositionTarget.TransformFromDevice.M22 ?? 1f / Screen.PrimaryScreen.LogicalPixelSize;
+
 		public new Point Location
 		{
 			get
 			{
+				if (initialLocation != null)
+					return initialLocation.Value;
+				var handle = WindowHandle;
+				if (handle != IntPtr.Zero)
+				{
+					// Left/Top doesn't always report correct location when maximized, so use Win32 when we can.
+					Win32.RECT rect;
+					if (Win32.GetWindowRect(handle, out rect))
+						return Point.Round(new Point(rect.left, rect.top).ScreenToLogical(SwfScreen));
+				}
+				// in WPF, left/top of a window is transformed by the (current) screen dpi, which makes absolutely no sense.
 				var left = Control.Left;
 				var top = Control.Top;
 				if (double.IsNaN(left) || double.IsNaN(top))
 					return Point.Empty;
-				return new Point((int)left, (int)top);
+				// convert to screen co-ordinates
+				var scale = DpiScale;
+				var position = new Point((int)(left / scale), (int)(top / scale));
+				// now, convert to "proper" logical co-ordinates, taking all screens into account
+				return Point.Round(position.ScreenToLogical(SwfScreen));
 			}
 			set
 			{
-				Control.Left = value.X;
-				Control.Top = value.Y;
-				if (!Control.IsLoaded)
-					LocationSet = true;
+				if (WindowHandle == IntPtr.Zero)
+				{
+					// set location when the source is initialized and we have a Win32 handle to move about
+					// using Left/Top doesn't work (properly) in a per-monitor dpi environment.
+					initialLocation = value;
+					if (!LocationSet)
+					{
+						LocationSet = true;
+						Control.SourceInitialized += Control_SourceInitialized;
+					}
+				}
+				else
+				{
+					SetLocation(value);
+				}
 			}
+		}
+
+		void Control_SourceInitialized(object sender, EventArgs e)
+		{
+			LocationSet = false;
+			SetLocation(initialLocation.Value);
+			initialLocation = null;
+			Control.SourceInitialized -= Control_SourceInitialized;
+		}
+
+		void SetLocation(PointF location)
+		{
+			var handle = WindowHandle;
+			var loc = location.LogicalToScreen();
+
+			Win32.SetWindowPos(WindowHandle, IntPtr.Zero, loc.X, loc.Y, 0, 0, Win32.SWP.NOSIZE);
 		}
 
 		public WindowState WindowState
@@ -500,19 +642,26 @@ namespace Eto.Wpf.Forms
 		{
 			if (Control.WindowState == sw.WindowState.Minimized)
 				Control.WindowState = sw.WindowState.Normal;
-			Control.Activate();
+
+			if (!Control.Focusable)
+			{
+				var hWnd = WindowHandle;
+				if (hWnd != IntPtr.Zero)
+					Win32.SetWindowPos(hWnd, Win32.HWND_TOP, 0, 0, 0, 0, Win32.SWP.NOSIZE | Win32.SWP.NOMOVE);
+			}
+			else
+				Control.Activate();
 		}
 
 		public void SendToBack()
 		{
 			if (Topmost)
 				return;
-			var hWnd = new sw.Interop.WindowInteropHelper(Control).Handle;
+			var hWnd = WindowHandle;
 			if (hWnd != IntPtr.Zero)
-				Win32.SetWindowPos(hWnd, Win32.HWND_BOTTOM, 0, 0, 0, 0, Win32.SWP.NOSIZE | Win32.SWP.NOMOVE);
+				Win32.SetWindowPos(hWnd, Win32.HWND_BOTTOM, 0, 0, 0, 0, Win32.SWP.NOSIZE | Win32.SWP.NOMOVE | Win32.SWP.NOACTIVATE);
 			var window = sw.Application.Current.Windows.OfType<sw.Window>().FirstOrDefault(r => r != Control);
-			if (window != null)
-				window.Focus();
+			window?.Focus();
 		}
 
 		public override Color BackgroundColor
@@ -523,7 +672,7 @@ namespace Eto.Wpf.Forms
 
 		public Screen Screen
 		{
-			get { return new Screen(new ScreenHandler(Control)); }
+			get { return new Screen(new ScreenHandler(Control, SwfScreen)); }
 		}
 
 		public swi.InputBindingCollection InputBindings
@@ -552,6 +701,16 @@ namespace Eto.Wpf.Forms
 			var wpfWindow = owner.Handler as IWpfWindow;
 			if (wpfWindow != null)
 				wpfWindow.SetOwnerFor(Control);
+		}
+
+		public double WpfScale
+		{
+			get { return dpiHelper?.WpfScale ?? 1f; }
+		}
+
+		public float LogicalPixelSize
+		{
+			get { return (float)(dpiHelper?.Scale ?? (sw.PresentationSource.FromVisual(Control)?.CompositionTarget.TransformToDevice.M11 ?? 1.0)); }
 		}
 	}
 }

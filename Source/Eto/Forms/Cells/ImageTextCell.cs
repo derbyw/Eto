@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.ComponentModel;
 using Eto.Drawing;
 
 
@@ -10,7 +11,38 @@ namespace Eto.Forms
 	[Handler(typeof(ImageTextCell.IHandler))]
 	public class ImageTextCell : Cell
 	{
-		new IHandler Handler { get { return (IHandler)base.Handler; } }
+		new IHandler Handler => (IHandler)base.Handler;
+
+		/// <summary>
+		/// Gets or sets the horizontal alignment of the text within the cell.
+		/// </summary>
+		/// <value>The text alignment.</value>
+		public TextAlignment TextAlignment
+		{
+			get { return Handler.TextAlignment; }
+			set { Handler.TextAlignment = value; }
+		}
+
+		/// <summary>
+		/// Gets or sets the vertical alignment of the text within the cell.
+		/// </summary>
+		/// <value>The vertical text alignment.</value>
+		[DefaultValue(VerticalAlignment.Center)]
+		public VerticalAlignment VerticalAlignment
+		{
+			get { return Handler.VerticalAlignment; }
+			set { Handler.VerticalAlignment = value; }
+		}
+
+		/// <summary>
+		/// Gets or sets the auto selection mode.
+		/// </summary>
+		/// <value>The auto selection mode.</value>
+		public AutoSelectMode AutoSelectMode
+		{
+			get { return Handler.AutoSelectMode; }
+			set { Handler.AutoSelectMode = value; }
+		}
 
 		/// <summary>
 		/// Gets or sets the binding of the image to display for the cell.
@@ -42,8 +74,8 @@ namespace Eto.Forms
 		/// <param name="textProperty">Name of the text property in the data item.</param>
 		public ImageTextCell(string imageProperty, string textProperty)
 		{
-			ImageBinding = new PropertyBinding<Image>(imageProperty);
-			TextBinding = new PropertyBinding<string>(textProperty);
+			ImageBinding = Eto.Forms.Binding.Property<Image>(imageProperty);
+			TextBinding = Eto.Forms.Binding.Property<string>(textProperty);
 		}
 
 		/// <summary>
@@ -73,6 +105,24 @@ namespace Eto.Forms
 			/// </summary>
 			/// <value>The image interpolation.</value>
 			ImageInterpolation ImageInterpolation { get; set; }
+
+			/// <summary>
+			/// Gets or sets the horizontal alignment of the text within the cell.
+			/// </summary>
+			/// <value>The text alignment.</value>
+			TextAlignment TextAlignment { get; set; }
+
+			/// <summary>
+			/// Gets or sets the vertical alignment of the text within the cell.
+			/// </summary>
+			/// <value>The vertical text alignment.</value>
+			VerticalAlignment VerticalAlignment { get; set; }
+
+			/// <summary>
+			/// Gets or sets the auto selection mode.
+			/// </summary>
+			/// <value>The auto selection mode.</value>
+			AutoSelectMode AutoSelectMode { get; set; }
 		}
 	}
 }

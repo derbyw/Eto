@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using Eto.Drawing;
+using System.Linq;
 
 namespace Eto.Forms
 {
@@ -34,6 +35,15 @@ namespace Eto.Forms
 		/// </remarks>
 		public bool Loaded { get; private set; }
 
+		/// <summary>
+		/// Gets an enumeration of controls that are in the visual tree.
+		/// </summary>
+		/// <remarks>
+		/// This is used to specify which controls are contained by this instance that are part of the visual tree.
+		/// This should include all controls including non-logical Eto controls used for layout. 
+		/// </remarks>
+		/// <value>The visual controls.</value>
+		public virtual IEnumerable<Control> VisualControls => Handler.VisualControls;
 
 		/// <summary>
 		/// Gets or sets a user-defined object that contains data about the control
@@ -46,6 +56,49 @@ namespace Eto.Forms
 		{
 			get { return Properties.Get<object>(TagKey); }
 			set { Properties[TagKey] = value; }
+		}
+
+		/// <summary>
+		/// Gets the logical parent control.
+		/// </summary>
+		/// <remarks>
+		/// When the control is part of the visual tree (<see cref="IsVisualControl"/> is true), this returns the logical parent that contains this control.
+		/// Otherwise this is the same as <see cref="Parent"/>.
+		/// </remarks>
+		/// <value>The logical parent.</value>
+		public Container LogicalParent
+		{
+			get
+			{
+				if (IsVisualControl)
+				{
+					var foundVisual = false;
+					foreach (var parent in Parents.OfType<Container>())
+					{
+						if (!foundVisual && parent.Properties.Get<bool>(IsVisualControl_Key))
+							foundVisual = true;
+						else
+							return parent;
+					}
+				}
+				return Parent;
+			}
+		}
+
+		static object IsVisualControl_Key = new object();
+
+		/// <summary>
+		/// Gets a value indicating this <see cref="T:Eto.Forms.Control"/> is part of the visual tree.
+		/// </summary>
+		/// <value><c>true</c> if is visual control; otherwise, <c>false</c>.</value>
+		public bool IsVisualControl
+		{
+			get {
+				if (Properties.ContainsKey(IsVisualControl_Key))
+					return Properties.Get<bool>(IsVisualControl_Key);
+				return Parent?.IsVisualControl ?? false; // traverse up logical tree
+			}
+			internal set { Properties.Set(IsVisualControl_Key, value); }
 		}
 
 		static readonly object TagKey = new object();
@@ -610,14 +663,38 @@ namespace Eto.Forms
 		}
 
 		/// <summary>
-		/// Queues a repaint of the entire control on the screen
+		/// Queues a repaint of the entire control on the screen and any of its children.
 		/// </summary>
 		/// <remarks>
 		/// This is only useful when the control is visible.
 		/// </remarks>
 		public void Invalidate()
 		{
-			Handler.Invalidate();
+			Handler.Invalidate(true);
+		}
+
+		/// <summary>
+		/// Queues a repaint of the entire control on the screen
+		/// </summary>
+		/// <remarks>
+		/// This is only useful when the control is visible.
+		/// </remarks>
+		/// <param name="invalidateChildren"><c>True</c> to invalidate all children, <c>false</c> to only invalidate the container</param>
+		public void Invalidate(bool invalidateChildren)
+		{
+			Handler.Invalidate(invalidateChildren);
+		}
+
+		/// <summary>
+		/// Queues a repaint of the specified <paramref name="rect"/> of the control and any children.
+		/// </summary>
+		/// <remarks>
+		/// This is only useful when the control is visible.
+		/// </remarks>
+		/// <param name="rect">Rectangle to repaint</param>
+		public void Invalidate(Rectangle rect)
+		{
+			Handler.Invalidate(rect, true);
 		}
 
 		/// <summary>
@@ -627,9 +704,10 @@ namespace Eto.Forms
 		/// This is only useful when the control is visible.
 		/// </remarks>
 		/// <param name="rect">Rectangle to repaint</param>
-		public void Invalidate(Rectangle rect)
+		/// <param name="invalidateChildren"><c>True</c> to invalidate all children, <c>false</c> to only invalidate the container</param>
+		public void Invalidate(Rectangle rect, bool invalidateChildren)
 		{
-			Handler.Invalidate(rect);
+			Handler.Invalidate(rect, invalidateChildren);
 		}
 
 		/// <summary>
@@ -733,20 +811,20 @@ namespace Eto.Forms
 		/// <value>The parent control, or null if there is no parent</value>
 		public new Container Parent
 		{
-			get { return LogicalParent ?? base.Parent as Container; }
+			get { return base.Parent as Container; }
 		}
-
-		static readonly object LogicalParent_Key = new object();
 
 		/// <summary>
 		/// Gets or sets the logical parent, which excludes any visual structure of custom containers.
 		/// </summary>
 		/// <value>The logical parent.</value>
-		internal Container LogicalParent
+		internal Container InternalLogicalParent
 		{
-			get { return Properties.Get<Container>(LogicalParent_Key); }
-			set { Properties.Set(LogicalParent_Key, value); }
+			get { return base.Parent as Container; }
+			set { base.Parent = value; }
 		}
+
+		static readonly object VisualParent_Key = new object();
 
 		/// <summary>
 		/// Gets the visual container of this control, if any.
@@ -759,10 +837,10 @@ namespace Eto.Forms
 		/// <value>The visual parent of this control.</value>
 		public Container VisualParent
 		{
-			get { return base.Parent as Container; }
+			get { return Properties.Get<Container>(VisualParent_Key); }
 			internal set
 			{
-				base.Parent = value;
+				Properties.Set(VisualParent_Key, value);
 				Handler.SetParent(value);
 			}
 		}
@@ -828,8 +906,22 @@ namespace Eto.Forms
 			{
 				OnPreLoad(EventArgs.Empty);
 				OnLoad(EventArgs.Empty);
-				OnDataContextChanged(EventArgs.Empty);
-				OnLoadComplete(EventArgs.Empty);
+				Application.Instance.AsyncInvoke(() => OnLoadComplete(EventArgs.Empty));
+			}
+		}
+
+		/// <summary>
+		/// Detaches the control when it is used in a native application, when you want to reuse the control.
+		/// </summary>
+		/// <remarks>
+		/// This should only be called after <see cref="AttachNative"/> has been called, which is usually done by calling
+		/// to <c>ToNative(true)</c>.
+		/// </remarks>
+		public void DetachNative()
+		{
+			using (Platform.Context)
+			{
+				OnUnLoad(EventArgs.Empty);
 			}
 		}
 
@@ -888,6 +980,23 @@ namespace Eto.Forms
 			Handler.Focus();
 		}
 
+
+		static readonly object SuspendCount_Key = new object();
+
+		int SuspendCount
+		{
+			get { return Properties.Get<int>(SuspendCount_Key); }
+			set { Properties.Set(SuspendCount_Key, value); }
+		}
+
+		/// <summary>
+		/// Gets a value indicating whether the layout of child controls is suspended.
+		/// </summary>
+		/// <seealso cref="SuspendLayout"/>
+		/// <seealso cref="ResumeLayout"/>
+		/// <value><c>true</c> if this instance is suspended; otherwise, <c>false</c>.</value>
+		public bool IsSuspended { get { return SuspendCount > 0; } }
+
 		/// <summary>
 		/// Suspends the layout of child controls
 		/// </summary>
@@ -898,6 +1007,7 @@ namespace Eto.Forms
 		/// </remarks>
 		public virtual void SuspendLayout()
 		{
+			SuspendCount++;
 			Handler.SuspendLayout();
 		}
 
@@ -910,6 +1020,11 @@ namespace Eto.Forms
 		/// </remarks>
 		public virtual void ResumeLayout()
 		{
+			var count = SuspendCount;
+			if (count == 0)
+				throw new InvalidOperationException("Control is not suspended. You must balance calls to Resume() with Suspend()");
+			SuspendCount = --count;
+
 			Handler.ResumeLayout();
 		}
 
@@ -1057,6 +1172,24 @@ namespace Eto.Forms
 		{
 			get { return Handler.ToolTip; }
 			set { Handler.ToolTip = value; }
+		}
+
+		/// <summary>
+		/// Gets or sets the tab index order for this control within its container.
+		/// </summary>
+		/// <remarks>
+		/// This sets the order when using the tab key to cycle through controls
+		/// 
+		/// Note that some platforms (Gtk and WinForms) may not support setting the context of the tab order to StackLayout 
+		/// or DynamicLayout containers and may not behave exactly as expected. Use the 
+		/// <see cref="PlatformFeatures.TabIndexWithCustomContainers"/> flag to determine if it is supported.
+		/// </remarks>
+		/// <value>The index of the control in the tab order.</value>
+		[DefaultValue(int.MaxValue)]
+		public virtual int TabIndex
+		{
+			get { return Handler.TabIndex; }
+			set { Handler.TabIndex = value; }
 		}
 
 		/// <summary>
@@ -1215,98 +1348,112 @@ namespace Eto.Forms
 			/// </summary>
 			public void OnKeyDown(Control widget, KeyEventArgs e)
 			{
-				widget.Platform.Invoke(() => widget.OnKeyDown(e));
+				using (widget.Platform.Context)
+					widget.OnKeyDown(e);
 			}
 			/// <summary>
 			/// Raises the key up event.
 			/// </summary>
 			public void OnKeyUp(Control widget, KeyEventArgs e)
 			{
-				widget.Platform.Invoke(() => widget.OnKeyUp(e));
+				using (widget.Platform.Context)
+					widget.OnKeyUp(e);
 			}
 			/// <summary>
 			/// Raises the mouse down event.
 			/// </summary>
 			public void OnMouseDown(Control widget, MouseEventArgs e)
 			{
-				widget.Platform.Invoke(() => widget.OnMouseDown(e));
+				using (widget.Platform.Context)
+					widget.OnMouseDown(e);
 			}
 			/// <summary>
 			/// Raises the mouse up event.
 			/// </summary>
 			public void OnMouseUp(Control widget, MouseEventArgs e)
 			{
-				widget.Platform.Invoke(() => widget.OnMouseUp(e));
+				using (widget.Platform.Context)
+					widget.OnMouseUp(e);
 			}
 			/// <summary>
 			/// Raises the mouse move event.
 			/// </summary>
 			public void OnMouseMove(Control widget, MouseEventArgs e)
 			{
-				widget.Platform.Invoke(() => widget.OnMouseMove(e));
+				using (widget.Platform.Context)
+					widget.OnMouseMove(e);
 			}
 			/// <summary>
 			/// Raises the mouse leave event.
 			/// </summary>
 			public void OnMouseLeave(Control widget, MouseEventArgs e)
 			{
-				widget.Platform.Invoke(() => widget.OnMouseLeave(e));
+				using (widget.Platform.Context)
+					widget.OnMouseLeave(e);
 			}
 			/// <summary>
 			/// Raises the mouse enter event.
 			/// </summary>
 			public void OnMouseEnter(Control widget, MouseEventArgs e)
 			{
-				widget.Platform.Invoke(() => widget.OnMouseEnter(e));
+				using (widget.Platform.Context)
+					widget.OnMouseEnter(e);
 			}
 			/// <summary>
 			/// Raises the text input event.
 			/// </summary>
 			public void OnTextInput(Control widget, TextInputEventArgs e)
 			{
-				widget.Platform.Invoke(() => widget.OnTextInput(e));
+				using (widget.Platform.Context)
+					widget.OnTextInput(e);
 			}
 			/// <summary>
 			/// Raises the size changed event.
 			/// </summary>
 			public void OnSizeChanged(Control widget, EventArgs e)
 			{
-				widget.Platform.Invoke(() => widget.OnSizeChanged(e));
+				using (widget.Platform.Context)
+					widget.OnSizeChanged(e);
 			}
 			/// <summary>
 			/// Raises the mouse double click event.
 			/// </summary>
 			public void OnMouseDoubleClick(Control widget, MouseEventArgs e)
 			{
-				widget.Platform.Invoke(() => widget.OnMouseDoubleClick(e));
+				using (widget.Platform.Context)
+					widget.OnMouseDoubleClick(e);
 			}
 			/// <summary>
 			/// Raises the mouse wheel event.
 			/// </summary>
 			public void OnMouseWheel(Control widget, MouseEventArgs e)
 			{
-				widget.Platform.Invoke(() => widget.OnMouseWheel(e));
+				using (widget.Platform.Context)
+					widget.OnMouseWheel(e);
 			}
 			/// <summary>
 			/// Raises the got focus event.
 			/// </summary>
 			public void OnGotFocus(Control widget, EventArgs e)
 			{
-				widget.Platform.Invoke(() => widget.OnGotFocus(e));
+				using (widget.Platform.Context)
+					widget.OnGotFocus(e);
 			}
 			/// <summary>
 			/// Raises the lost focus event.
 			/// </summary>
 			public void OnLostFocus(Control widget, EventArgs e)
 			{
-				widget.Platform.Invoke(() => widget.OnLostFocus(e));
+				using (widget.Platform.Context)
+					widget.OnLostFocus(e);
 			}
 			/// <summary>
 			/// Raises the shown event.
 			/// </summary>
 			public void OnShown(Control widget, EventArgs e)
 			{
-				widget.Platform.Invoke(() => widget.OnShown(e));
+				using (widget.Platform.Context)
+					widget.OnShown(e);
 			}
 
 			/// <summary>
@@ -1377,7 +1524,8 @@ namespace Eto.Forms
 			/// <remarks>
 			/// This is only useful when the control is visible.
 			/// </remarks>
-			void Invalidate();
+			/// <param name="invalidateChildren"><c>True</c> to invalidate all children, <c>false</c> to only invalidate the container</param>
+			void Invalidate(bool invalidateChildren);
 
 			/// <summary>
 			/// Queues a repaint of the specified <paramref name="rect"/> of the control
@@ -1386,7 +1534,8 @@ namespace Eto.Forms
 			/// This is only useful when the control is visible.
 			/// </remarks>
 			/// <param name="rect">Rectangle to repaint</param>
-			void Invalidate(Rectangle rect);
+			/// <param name="invalidateChildren"><c>True</c> to invalidate all children, <c>false</c> to only invalidate the container</param>
+			void Invalidate(Rectangle rect, bool invalidateChildren);
 
 			/// <summary>
 			/// Suspends the layout of child controls
@@ -1544,6 +1693,29 @@ namespace Eto.Forms
 			/// </summary>
 			/// <value>The mouse cursor</value>
 			Cursor Cursor { get; set; }
+
+			/// <summary>
+			/// Gets or sets the tab index order for this control within its container.
+			/// </summary>
+			/// <remarks>
+			/// This sets the order when using the tab key to cycle through controls
+			/// 
+			/// Note that some platforms (Gtk and WinForms) may not support setting the context of the tab order to StackLayout 
+			/// or DynamicLayout containers and may not behave exactly as expected. Use the 
+			/// <see cref="PlatformFeatures.TabIndexWithCustomContainers"/> flag to determine if it is supported.
+			/// </remarks>
+			/// <value>The index of the control in the tab order.</value>
+			int TabIndex { get; set; }
+
+			/// <summary>
+			/// Gets an enumeration of controls that are in the visual tree.
+			/// </summary>
+			/// <remarks>
+			/// This is used to specify which controls are contained by this instance that are part of the visual tree.
+			/// This should include all controls including non-logical Eto controls used for layout. 
+			/// </remarks>
+			/// <value>The visual controls.</value>
+			IEnumerable<Control> VisualControls { get; }
 
 			/// <summary>
 			/// Gets or sets a value indicating whether this control can be dragged.

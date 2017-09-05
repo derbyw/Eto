@@ -2,6 +2,11 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Collections.ObjectModel;
+using System.Collections.Generic;
+using System.Linq;
+using System.Diagnostics;
+using System.ComponentModel;
 
 namespace Eto.Drawing
 {
@@ -73,6 +78,7 @@ namespace Eto.Drawing
 	/// <copyright>(c) 2012-2014 by Curtis Wensley</copyright>
 	/// <license type="BSD-3">See LICENSE for full terms</license>
 	[Handler(typeof(Bitmap.IHandler))]
+	[TypeConverter(typeof(BitmapConverter))]
 	public class Bitmap : Image
 	{
 		new IHandler Handler { get { return (IHandler)base.Handler; } }
@@ -91,11 +97,12 @@ namespace Eto.Drawing
 #if PCL
 				if (TypeHelper.GetCallingAssembly == null)
 					throw new ArgumentNullException("assembly", string.Format(CultureInfo.CurrentCulture, "This platform doesn't support Assembly.GetCallingAssembly(), so you must pass the assembly directly"));
-				assembly = (Assembly)TypeHelper.GetCallingAssembly.Invoke(null, new object[0]);
+				assembly = (Assembly)TypeHelper.GetCallingAssembly.Invoke(null, null);
 #else
 				assembly = Assembly.GetCallingAssembly();
 #endif
 			}
+
 			using (var stream = assembly.GetManifestResourceStream(resourceName))
 			{
 				if (stream == null)
@@ -114,11 +121,7 @@ namespace Eto.Drawing
 		{
 			if (type == null)
 				throw new ArgumentNullException("type");
-			#if PCL
-			return FromResource(resourceName, type.GetTypeInfo().Assembly);
-			#else
-			return FromResource(resourceName, type.Assembly);
-			#endif
+			return FromResource(resourceName, type.GetAssembly());
 		}
 
 		/// <summary>
@@ -205,6 +208,32 @@ namespace Eto.Drawing
 		}
 
 		/// <summary>
+		/// Creates a new bitmap with the specified dimensions, format and pixel data
+		/// </summary>
+		/// <param name="width">Width of the bitmap</param>
+		/// <param name="height">Height of the bitmap</param>
+		/// <param name="pixelFormat">Format of each pixel</param>
+		/// <param name="data">Color data enumeration, starting from top-left of the bitmap and width*height length</param>
+		public Bitmap(int width, int height, PixelFormat pixelFormat, IEnumerable<Color> data)
+			: this(width, height, pixelFormat)
+		{
+			using (var bd = Lock())
+				bd.SetPixels(data);
+		}
+
+		/// <summary>
+		/// Creates a new bitmap with the specified dimensions, format, and integer pixel data
+		/// </summary>
+		/// <param name="width">Width of the bitmap</param>
+		/// <param name="height">Height of the bitmap</param>
+		/// <param name="pixelFormat">Format for each pixel</param>
+		/// <param name="data">Colordata enumeration, in ARGB format, starting from top-left of the bitmap and width*height length</param>
+		public Bitmap(int width, int height, PixelFormat pixelFormat, IEnumerable<int> data)
+			: this(width, height, pixelFormat, data.Select(Color.FromArgb))
+		{
+		}
+
+		/// <summary>
 		/// Initializes a new instance of a Bitmap from a <paramref name="bytes"/> array
 		/// </summary>
 		/// <param name="bytes">Array of bytes containing the image data in one of the supported <see cref="ImageFormat"/> types</param>
@@ -245,6 +274,9 @@ namespace Eto.Drawing
 		/// <returns>A BitmapData object that carries a pointer and functions for manipulating the data directly</returns>
 		public BitmapData Lock()
 		{
+			if (BitmapData.IsImageLocked(this))
+				throw new InvalidOperationException("Image is already locked. Ensure you dispose the BitmapData object explicitly or with a using() block.");
+
 			return Handler.Lock();
 		}
 
@@ -356,6 +388,39 @@ namespace Eto.Drawing
 			{
 				bd.SetPixel(x, y, color);
 			}
+		}
+
+		/// <summary>
+		/// Gets an Icon representation of this Bitmap scaled to draw within the specified fitting size.
+		/// </summary>
+		/// <remarks>
+		/// This is useful when you want to draw the image at a different size than the default size without resizing the image.
+		/// Note that the <paramref name="width"/> and <paramref name="height"/> specifies the maxiumum drawing size of the Icon, but will not
+		/// change the aspect of each frame's bitmap.  For example, if an existing frame is 128x128, and you specify 16x32,
+		/// then the resulting frame will draw at 16x16.
+		/// </remarks>
+		/// <returns>A new icon that will draw within the fitting size.</returns>
+		/// <param name="width">Maxiumum drawing width for the new icon.</param>
+		/// <param name="height">Maxiumum drawing height for the new icon.</param>
+		public Icon WithSize(int width, int height)
+		{
+			return new Icon(1, this).WithSize(width, height);
+		}
+
+		/// <summary>
+		/// Gets an Icon representation of this Bitmap scaled to draw within the specified fitting size.
+		/// </summary>
+		/// <remarks>
+		/// This is useful when you want to draw the image at a different size than the default size without resizing the image.
+		/// Note that the <paramref name="fittingSize"/> specifies the maxiumum drawing size of the Icon, but will not
+		/// change the aspect of each frame's bitmap.  For example, if an existing frame is 128x128, and you specify 16x32,
+		/// then the resulting frame will draw at 16x16.
+		/// </remarks>
+		/// <returns>A new icon that will draw within the fitting size.</returns>
+		/// <param name="fittingSize">The maximum size to draw the Icon.</param>
+		public Icon WithSize(Size fittingSize)
+		{
+			return new Icon(1, this).WithSize(fittingSize);
 		}
 
 		#region Handler

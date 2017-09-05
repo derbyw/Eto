@@ -2,8 +2,10 @@ using System;
 using Eto.Forms;
 using System.Linq;
 using Eto.Drawing;
+using System.Collections.Generic;
 
 #if XAMMAC2
+using AppKit;
 using Foundation;
 using CoreGraphics;
 using ObjCRuntime;
@@ -75,6 +77,8 @@ namespace Eto.Mac.Forms
 
 		public bool InitialLayout { get; private set; }
 
+		public override IEnumerable<Control> VisualControls => Widget.Controls;
+
 		protected override void Initialize()
 		{
 			base.Initialize();
@@ -86,18 +90,15 @@ namespace Eto.Mac.Forms
 			LayoutChildren();	
 		}
 
-		public bool NeedsQueue(Action update = null)
-		{
-			#if OSX
-			if (ApplicationHandler.QueueResizing)
-			{
-				ApplicationHandler.Instance.AsyncInvoke(update ?? Update);
-				return true;
-			}
-			#endif
-			return false;
-		}
+#if OSX
+		public bool NeedsQueue => ApplicationHandler.QueueResizing;
 
+		public void Queue(Action update = null) => ApplicationHandler.Instance.AsyncInvoke(update ?? Update);
+		#else
+		public bool NeedsQueue => false;
+
+		public void Queue(Action update = null) { }
+		#endif
 		public virtual void SetContentSize(CGSize contentSize)
 		{
 		}
@@ -108,6 +109,8 @@ namespace Eto.Mac.Forms
 
 		public void LayoutAllChildren()
 		{
+			if (Widget.IsSuspended)
+				return;
 			//Console.WriteLine("Layout all children: {0}\n {1}", this.GetType().Name, new StackTrace());
 			LayoutChildren();
 			foreach (var child in Widget.VisualControls.Select (r => r.GetMacContainer()).Where(r => r != null))
@@ -129,8 +132,13 @@ namespace Eto.Mac.Forms
 
 		public virtual void LayoutParent(bool updateSize = true)
 		{
-			if (NeedsQueue(() => LayoutParent(updateSize)))
+			if (Widget.IsSuspended)
 				return;
+			if (NeedsQueue)
+			{
+				Queue(() => LayoutParent(updateSize));
+				return;
+			}
 			var container = Widget.VisualParent.GetMacContainer();
 			if (container != null)
 			{
@@ -148,22 +156,43 @@ namespace Eto.Mac.Forms
 			LayoutAllChildren();
 		}
 
-		public override void Invalidate()
+		public override void Invalidate(bool invalidateChildren)
 		{
-			base.Invalidate();
-			foreach (var child in Widget.VisualControls)
+			base.Invalidate(invalidateChildren);
+			if (invalidateChildren)
 			{
-				child.Invalidate();
+				foreach (var child in Widget.VisualControls)
+				{
+					child.Invalidate(invalidateChildren);
+				}
 			}
 		}
 
-		public override void Invalidate(Rectangle rect)
+		public override void Invalidate(Rectangle rect, bool invalidateChildren)
 		{
-			base.Invalidate(rect);
-			var screenRect = Widget.RectangleToScreen(rect);
-			foreach (var child in Widget.VisualControls)
+			base.Invalidate(rect, invalidateChildren);
+			if (invalidateChildren)
 			{
-				child.Invalidate(Rectangle.Round(child.RectangleFromScreen(screenRect)));
+				var screenRect = Widget.RectangleToScreen(rect);
+				foreach (var child in Widget.VisualControls)
+				{
+					child.Invalidate(Rectangle.Round(child.RectangleFromScreen(screenRect)), invalidateChildren);
+				}
+			}
+		}
+
+		public override void RecalculateKeyViewLoop(ref NSView last)
+		{
+			foreach (var child in Widget.Controls.OrderBy(c => c.TabIndex))
+			{
+				var handler = child.GetMacControl();
+				if (handler != null)
+				{
+					handler.RecalculateKeyViewLoop(ref last);
+					if (last != null)
+						last.NextKeyView = handler.FocusControl;
+					last = handler.FocusControl;
+				}
 			}
 		}
 	}

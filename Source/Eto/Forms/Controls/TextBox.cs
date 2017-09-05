@@ -1,8 +1,36 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 
 namespace Eto.Forms
 {
+	/// <summary>
+	/// Enumeration of the modes for auto selecting text.
+	/// </summary>
+	public enum AutoSelectMode
+	{
+		/// <summary>
+		/// Selects the text when the control recieves focus, unless the user
+		/// clicks at a point in the text with the I beam cursor.
+		/// </summary>
+		OnFocus = 0,
+
+		/// <summary>
+		/// The text is never automatically selected.  When the text of the control is set
+		/// to a different value, the cursor usually will be at the end of the text input.
+		/// 
+		/// The last selection of the control is also usually kept in this mode.
+		/// </summary>
+		Never = 1,
+
+		/// <summary>
+		/// Selects the text when the control recieves focus regardless of whether the user 
+		/// clicked at a point in the text, or the last selection.
+		/// 
+		/// On macOS, if the user clicks and drags to select some text it will not select all text.
+		/// </summary>
+		Always = 2
+	}
+
 	/// <summary>
 	/// Single line text box control
 	/// </summary>
@@ -59,7 +87,7 @@ namespace Eto.Forms
 		}
 
 		/// <summary>
-		/// Gets or sets the maximum length of the text that can be entered in the control.
+		/// Gets or sets the maximum length of the text that can be entered in the control, 0 for no limit.
 		/// </summary>
 		/// <remarks>
 		/// This typically does not affect the value set using <see cref="TextControl.Text"/>, only the limit of what the user can 
@@ -69,7 +97,12 @@ namespace Eto.Forms
 		public int MaxLength
 		{
 			get { return Handler.MaxLength; }
-			set { Handler.MaxLength = value; }
+			set
+			{
+				if (value < 0)
+					throw new ArgumentOutOfRangeException(nameof(value), "MaxLength must be greater or equal to zero.");
+				Handler.MaxLength = value;
+			}
 		}
 
 		/// <summary>
@@ -100,6 +133,16 @@ namespace Eto.Forms
 		{
 			get { return Handler.ShowBorder; }
 			set { Handler.ShowBorder = value; }
+		}
+
+		/// <summary>
+		/// Gets or sets the alignment of the text in the entry box.
+		/// </summary>
+		/// <value>The text alignment.</value>
+		public TextAlignment TextAlignment
+		{
+			get { return Handler.TextAlignment; }
+			set { Handler.TextAlignment = value; }
 		}
 
 		/// <summary>
@@ -161,6 +204,16 @@ namespace Eto.Forms
 					Text = text;
 				}
 			}
+		}
+
+		/// <summary>
+		/// Gets or sets the auto selection mode.
+		/// </summary>
+		/// <value>The auto selection mode.</value>
+		public AutoSelectMode AutoSelectMode
+		{
+			get { return Handler.AutoSelectMode; }
+			set { Handler.AutoSelectMode = value; }
 		}
 
 		/// <summary>
@@ -231,6 +284,18 @@ namespace Eto.Forms
 			/// </remarks>
 			/// <value><c>true</c> to show the control border; otherwise, <c>false</c>.</value>
 			bool ShowBorder { get; set; }
+
+			/// <summary>
+			/// Gets or sets the alignment of the text in the entry box.
+			/// </summary>
+			/// <value>The text alignment.</value>
+			TextAlignment TextAlignment { get; set; }
+
+			/// <summary>
+			/// Gets or sets the auto selection mode.
+			/// </summary>
+			/// <value>The auto selection mode.</value>
+			AutoSelectMode AutoSelectMode { get; set; }
 		}
 
 		#region Callback
@@ -263,7 +328,8 @@ namespace Eto.Forms
 			/// </summary>
 			public void OnTextChanging(TextBox widget, TextChangingEventArgs e)
 			{
-				widget.Platform.Invoke(() => widget.OnTextChanging(e));
+				using (widget.Platform.Context)
+					widget.OnTextChanging(e);
 			}
 		}
 

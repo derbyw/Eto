@@ -1,18 +1,24 @@
-using Eto.Forms;
+﻿using Eto.Forms;
 using System.Collections.Generic;
+using System.Diagnostics;
 using swi = System.Windows.Input;
 
 namespace Eto.Wpf
 {
 	public static class KeyMap
 	{
-		static readonly Dictionary<swi.Key, Keys> keymap = new Dictionary<swi.Key, Keys>();
-		static readonly Dictionary<Keys, swi.Key> inverse = new Dictionary<Keys, swi.Key>();
+		static Dictionary<swi.Key, Keys> _map;
+		static Dictionary<Keys, swi.Key> _inverseMap;
+		static Dictionary<swi.Key, Keys> Map => _map ?? (_map = GetKeyMap());
+		static Dictionary<Keys, swi.Key> InverseMap => _inverseMap ?? (_inverseMap = GetInverseMap());
 
 		public static Keys ToEto(this swi.Key key)
 		{
 			Keys mapped;
-			return keymap.TryGetValue(key, out mapped) ? mapped : Keys.None;
+			if (Map.TryGetValue(key, out mapped))
+				return mapped;
+			Debug.WriteLine($"Unknown key {key}");
+			return Keys.None;
 		}
 
 		public static Keys ToEto(this swi.ModifierKeys modifier)
@@ -35,7 +41,7 @@ namespace Eto.Wpf
 		public static swi.Key ToWpf(this Keys key)
 		{
 			swi.Key mapped;
-			return inverse.TryGetValue(key, out mapped) ? mapped : swi.Key.None;
+			return InverseMap.TryGetValue(key, out mapped) ? mapped : swi.Key.None;
 		}
 
 		public static swi.Key ToWpfKey(this Keys key)
@@ -55,8 +61,22 @@ namespace Eto.Wpf
 			return val;
 		}
 
-		static KeyMap()
+		static Dictionary<Keys, swi.Key> GetInverseMap()
 		{
+			var inverse = new Dictionary<Keys, swi.Key>();
+			foreach (var entry in GetKeyMap())
+			{
+				if (!inverse.ContainsKey(entry.Value))
+					inverse.Add(entry.Value, entry.Key);
+			}
+			return inverse;
+		}
+
+		static Dictionary<swi.Key, Keys> GetKeyMap()
+		{
+			var keymap = new Dictionary<swi.Key, Keys>();
+
+			// keep in same order as in Keys
 			keymap.Add(swi.Key.A, Keys.A);
 			keymap.Add(swi.Key.B, Keys.B);
 			keymap.Add(swi.Key.C, Keys.C);
@@ -105,38 +125,60 @@ namespace Eto.Wpf
 			keymap.Add(swi.Key.D7, Keys.D7);
 			keymap.Add(swi.Key.D8, Keys.D8);
 			keymap.Add(swi.Key.D9, Keys.D9);
-			keymap.Add(swi.Key.Space, Keys.Space);
+			keymap.Add(swi.Key.OemMinus, Keys.Minus);
+			keymap.Add(swi.Key.OemTilde, Keys.Grave);
+			keymap.Add(swi.Key.Insert, Keys.Insert);
+			keymap.Add(swi.Key.Home, Keys.Home);
+			keymap.Add(swi.Key.PageDown, Keys.PageDown);
+			keymap.Add(swi.Key.PageUp, Keys.PageUp);
+			keymap.Add(swi.Key.Delete, Keys.Delete);
+			keymap.Add(swi.Key.End, Keys.End);
+			keymap.Add(swi.Key.Divide, Keys.Divide);
+			keymap.Add(swi.Key.Decimal, Keys.Decimal);
+			keymap.Add(swi.Key.Back, Keys.Backspace);
 			keymap.Add(swi.Key.Up, Keys.Up);
 			keymap.Add(swi.Key.Down, Keys.Down);
 			keymap.Add(swi.Key.Left, Keys.Left);
 			keymap.Add(swi.Key.Right, Keys.Right);
-			keymap.Add(swi.Key.PageDown, Keys.PageDown);
-			keymap.Add(swi.Key.PageUp, Keys.PageUp);
-			keymap.Add(swi.Key.Home, Keys.Home);
-			keymap.Add(swi.Key.End, Keys.End);
-			/*
-			keymap.Add (swi.Key.LeftAlt, Keys.Alt);
-			keymap.Add (swi.Key.RightAlt, Keys.Alt);
-			keymap.Add (swi.Key.LeftCtrl, Keys.Control);
-			keymap.Add (swi.Key.LeftCtrl, Keys.Control);
-			keymap.Add (swi.Key.LeftShift, Keys.Shift);
-			keymap.Add (swi.Key.RightShift, Keys.Shift);
-			keymap.Add (swi.Key.LWin, Keys.Menu);
-			keymap.Add (swi.Key.RWin, Keys.Menu);
-			 */
-			keymap.Add(swi.Key.Escape, Keys.Escape);
-			keymap.Add(swi.Key.Delete, Keys.Delete);
-			keymap.Add(swi.Key.Back, Keys.Backspace);
-			keymap.Add(swi.Key.Divide, Keys.Divide);
-			keymap.Add(swi.Key.Enter, Keys.Enter);
-			keymap.Add(swi.Key.Insert, Keys.Insert);
 			keymap.Add(swi.Key.Tab, Keys.Tab);
+			keymap.Add(swi.Key.Space, Keys.Space);
+			keymap.Add(swi.Key.CapsLock, Keys.CapsLock);
+			keymap.Add(swi.Key.Scroll, Keys.ScrollLock);
+			keymap.Add(swi.Key.PrintScreen, Keys.PrintScreen);
+			keymap.Add(swi.Key.NumLock, Keys.NumberLock);
+			keymap.Add(swi.Key.Enter, Keys.Enter);
+			keymap.Add(swi.Key.Escape, Keys.Escape);
+			keymap.Add(swi.Key.Multiply, Keys.Multiply);
+			keymap.Add(swi.Key.Add, Keys.Add);
+			keymap.Add(swi.Key.Subtract, Keys.Subtract);
+			keymap.Add(swi.Key.Help, Keys.Help);
+			keymap.Add(swi.Key.Pause, Keys.Pause);
+			keymap.Add(swi.Key.Clear, Keys.Clear);
+			//keymap.Add(swi.Key., Keys.KeypadEqual);
+			keymap.Add(swi.Key.RightAlt, Keys.Menu);
+			keymap.Add(swi.Key.LeftAlt, Keys.Menu);
+			keymap.Add(swi.Key.OemPipe, Keys.Backslash);
+			keymap.Add(swi.Key.OemPlus, Keys.Equal);
+			keymap.Add(swi.Key.OemSemicolon, Keys.Semicolon);
+			keymap.Add(swi.Key.OemQuotes, Keys.Quote);
+			keymap.Add(swi.Key.OemComma, Keys.Comma);
+			keymap.Add(swi.Key.OemPeriod, Keys.Period);
+			keymap.Add(swi.Key.OemQuestion, Keys.Slash);
+			keymap.Add(swi.Key.OemCloseBrackets, Keys.RightBracket);
+			keymap.Add(swi.Key.OemOpenBrackets, Keys.LeftBracket);
 			keymap.Add(swi.Key.Apps, Keys.ContextMenu);
+			keymap.Add(swi.Key.NumPad0, Keys.Keypad0);
+			keymap.Add(swi.Key.NumPad1, Keys.Keypad1);
+			keymap.Add(swi.Key.NumPad2, Keys.Keypad2);
+			keymap.Add(swi.Key.NumPad3, Keys.Keypad3);
+			keymap.Add(swi.Key.NumPad4, Keys.Keypad4);
+			keymap.Add(swi.Key.NumPad5, Keys.Keypad5);
+			keymap.Add(swi.Key.NumPad6, Keys.Keypad6);
+			keymap.Add(swi.Key.NumPad7, Keys.Keypad7);
+			keymap.Add(swi.Key.NumPad8, Keys.Keypad8);
+			keymap.Add(swi.Key.NumPad9, Keys.Keypad9);
 
-			foreach (var entry in keymap)
-			{
-				inverse.Add(entry.Value, entry.Key);
-			}
+			return keymap;
 		}
 	}
 }

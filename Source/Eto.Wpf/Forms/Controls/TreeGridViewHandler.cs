@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using swc = System.Windows.Controls;
 using sw = System.Windows;
 using swd = System.Windows.Data;
@@ -6,10 +6,13 @@ using swm = System.Windows.Media;
 using Eto.Forms;
 using Eto.CustomControls;
 using Eto.Wpf.CustomControls.TreeGridView;
+using Eto.Drawing;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Eto.Wpf.Forms.Controls
 {
-	public class TreeGridViewHandler : GridHandler<EtoDataGrid, TreeGridView, TreeGridView.ICallback>, TreeGridView.IHandler, ITreeHandler
+	public class TreeGridViewHandler : GridHandler<TreeGridView, TreeGridView.ICallback>, TreeGridView.IHandler, ITreeHandler
 	{
 		TreeController controller;
 		ITreeGridItem lastSelected;
@@ -24,27 +27,33 @@ namespace Eto.Wpf.Forms.Controls
 			base.Initialize();
 			controller = new TreeController { Handler = this };
 			Control.Background = sw.SystemColors.WindowBrush;
-			Control.KeyDown += (sender, e) =>
-			{
-				if (e.Key == sw.Input.Key.Enter)
-				{
-					if (SelectedItem != null)
-						Callback.OnActivated(Widget, new TreeGridViewItemEventArgs(SelectedItem));
-				}
-			};
-			Control.MouseDoubleClick += delegate
-			{
-				if (SelectedItem != null)
-				{
-					Callback.OnActivated(Widget, new TreeGridViewItemEventArgs(SelectedItem));
-				}
-			};
 		}
 
 		public override void AttachEvent(string id)
 		{
 			switch (id)
 			{
+				case TreeGridView.ActivatedEvent:
+					Control.PreviewKeyDown += (sender, e) =>
+					{
+						if (e.Key == sw.Input.Key.Enter)
+						{
+							if (SelectedItem != null)
+							{
+								Callback.OnActivated(Widget, new TreeGridViewItemEventArgs(SelectedItem));
+								e.Handled = true;
+							}
+						}
+					};
+					Control.MouseDoubleClick += (sender, e) =>
+					{
+						if (SelectedItem != null)
+						{
+							Callback.OnActivated(Widget, new TreeGridViewItemEventArgs(SelectedItem));
+							e.Handled = true;
+						}
+					};
+					break;
 				case TreeGridView.ExpandingEvent:
 					controller.Expanding += (sender, e) => Callback.OnExpanding(Widget, e);
 					break;
@@ -100,6 +109,8 @@ namespace Eto.Wpf.Forms.Controls
 			}
 		}
 
+		public IEnumerable<object> SelectedItems => Control.SelectedItems.OfType<object>();
+
 		public override sw.FrameworkElement SetupCell(IGridColumnHandler column, sw.FrameworkElement defaultContent)
 		{
 			if (object.ReferenceEquals(column, Columns.Collection[0].Handler))
@@ -117,6 +128,36 @@ namespace Eto.Wpf.Forms.Controls
 		{
 			RestoreFocus();
 			SkipSelectionChanged = false;
+		}
+
+		public void ReloadData()
+		{
+			controller.ReloadData();
+		}
+
+		public void ReloadItem(ITreeGridItem item)
+		{
+			controller.ReloadData();
+		}
+
+		public ITreeGridItem GetCellAt(PointF location, out int column)
+		{
+			var hitTestResult = swm.VisualTreeHelper.HitTest(Control, location.ToWpf())?.VisualHit;
+			if (hitTestResult == null)
+			{
+				column = -1;
+				return null;
+			}
+			var dataGridCell = hitTestResult.GetVisualParent<swc.DataGridCell>();
+			column = dataGridCell?.Column != null ? Control.Columns.IndexOf(dataGridCell.Column) : -1;
+
+			var dataGridRow = hitTestResult.GetVisualParent<swc.DataGridRow>();
+			if (dataGridRow != null)
+			{
+				int row = dataGridRow.GetIndex();
+				return GetItemAtRow(row) as ITreeGridItem;
+			}
+			return null;
 		}
 	}
 }

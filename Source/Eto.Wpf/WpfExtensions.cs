@@ -1,8 +1,10 @@
-using System;
+﻿using System;
 using sw = System.Windows;
 using swm = System.Windows.Media;
 using swi = System.Windows.Input;
 using swc = System.Windows.Controls;
+using swf = System.Windows.Forms;
+using sd = System.Drawing;
 using Eto.Wpf.Forms;
 using Eto.Forms;
 using System.Linq;
@@ -15,12 +17,32 @@ namespace Eto.Wpf
 		public static T GetVisualParent<T>(this sw.DependencyObject control)
 			where T : class
 		{
-			while (control != null)
+			var ce = control as sw.ContentElement;
+			while (ce != null)
+			{
+				control = sw.ContentOperations.GetParent(ce);
+				ce = control as sw.ContentElement;
+			}
+
+			while (control is swm.Visual || control is swm.Media3D.Visual3D)
 			{
 				control = swm.VisualTreeHelper.GetParent(control);
 				var tmp = control as T;
 				if (tmp != null)
 					return tmp;
+			}
+			return null;
+		}
+
+		public static T GetParent<T>(this sw.FrameworkElement control)
+			where T : class
+		{
+			while (control != null)
+			{
+				var tmp = control.Parent as T;
+				if (tmp != null)
+					return tmp;
+				control = control.Parent as sw.FrameworkElement;
 			}
 			return null;
 		}
@@ -38,10 +60,14 @@ namespace Eto.Wpf
 		public static T FindChild<T>(this sw.DependencyObject parent, string childName = null)
 			 where T : sw.DependencyObject
 		{
-			// Confirm parent and childName are valid. 
-			if (parent == null) return null;
+			return FindVisualChildren<T>(parent, childName).FirstOrDefault();
+		}
 
-			T foundChild = null;
+		public static IEnumerable<T> FindVisualChildren<T>(this sw.DependencyObject parent, string childName = null)
+			 where T : sw.DependencyObject
+		{
+			// Confirm parent and childName are valid. 
+			if (parent == null) yield break;
 
 			int childrenCount = swm.VisualTreeHelper.GetChildrenCount(parent);
 			for (int i = 0; i < childrenCount; i++)
@@ -52,31 +78,34 @@ namespace Eto.Wpf
 				if (childType == null)
 				{
 					// recursively drill down the tree
-					foundChild = FindChild<T>(child, childName);
-
-					// If the child is found, break so we do not overwrite the found child. 
-					if (foundChild != null) break;
+					foreach (var c in FindVisualChildren<T>(child, childName))
+					{
+						yield return c;
+					}
 				}
-				else if (!string.IsNullOrEmpty(childName))
+				else if (childName != null)
 				{
 					var frameworkElement = child as sw.FrameworkElement;
 					// If the child's name is set for search
 					if (frameworkElement != null && frameworkElement.Name == childName)
 					{
 						// if the child's name is of the request name
-						foundChild = (T)child;
-						break;
+						yield return childType;
+					}
+					else
+					{
+						foreach (var c in FindVisualChildren<T>(child, childName))
+						{
+							yield return c;
+						}
 					}
 				}
 				else
 				{
 					// child element found.
-					foundChild = (T)child;
-					break;
+					yield return childType;
 				}
 			}
-
-			return foundChild;
 		}
 
 		public static sw.Window GetParentWindow(this sw.FrameworkElement element)
@@ -105,10 +134,23 @@ namespace Eto.Wpf
 			if (!checkChildren)
 				return current == control;
 
-			while (current != null)
+			// check content elements
+			var ce = current as sw.ContentElement;
+			while (ce != null)
+			{
+				current = sw.ContentOperations.GetParent(ce);
+				if (current == control)
+					return true;
+
+				ce = control as sw.ContentElement;
+			}
+
+			// check visual elements
+			while (current is swm.Visual || current is swm.Media3D.Visual3D)
 			{
 				if (current == control)
 					return true;
+
 				current = swm.VisualTreeHelper.GetParent(current);
 			}
 			return false;
@@ -175,7 +217,18 @@ namespace Eto.Wpf
             return new sw.Rect(x, y, width, height);
         }
 
-        public static sw.Size IfNaN(this sw.Size size1, sw.Size size2)
+		public static sw.Size IfInfinity(this sw.Size size1, sw.Size size2)
+		{
+			if (double.IsInfinity(size1.Width))
+				size1.Width = size2.Width;
+
+			if (double.IsInfinity(size1.Height))
+				size1.Height = size2.Height;
+			return size1;
+		}
+
+
+		public static sw.Size IfNaN(this sw.Size size1, sw.Size size2)
         {
             if (double.IsNaN(size1.Width))
                 size1.Width = size2.Width;
@@ -194,7 +247,25 @@ namespace Eto.Wpf
             return size;
         }
 
-        public static sw.Size Add(this sw.Size size1, sw.Size size2)
+		public static sw.Size ZeroIfInfinity(this sw.Size size)
+		{
+			if (double.IsInfinity(size.Width))
+				size.Width = 0;
+			if (double.IsInfinity(size.Height))
+				size.Height = 0;
+			return size;
+		}
+
+		public static sw.Size InfinityIfNan(this sw.Size size)
+		{
+			if (double.IsNaN(size.Width))
+				size.Width = double.PositiveInfinity;
+			if (double.IsNaN(size.Height))
+				size.Height = double.PositiveInfinity;
+			return size;
+		}
+
+		public static sw.Size Add(this sw.Size size1, sw.Size size2)
 		{
 			return new sw.Size(size1.Width + size2.Width, size1.Height + size2.Height);
 		}

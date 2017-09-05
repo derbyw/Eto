@@ -20,6 +20,7 @@ namespace Eto.Direct2D.Drawing
 	public interface ID2DBitmapHandler
 	{
 		sd.Bitmap GetBitmap(sd.RenderTarget target);
+		sw.Bitmap Control { get; }
 	}
 
 	public class ImageHandler<TWidget> : WidgetHandler<sw.Bitmap, TWidget>, Image.IHandler, ID2DBitmapHandler
@@ -29,7 +30,7 @@ namespace Eto.Direct2D.Drawing
 		where TWidget: Image
     {
 		sd.Bitmap targetBitmap;
-		public sw.Bitmap[] Frames { get; private set; }
+		public sw.Bitmap[] Frames { get; protected set; }
 		public sd.Bitmap GetBitmap(sd.RenderTarget target)
 		{
 			if (targetBitmap == null || !Equals(targetBitmap.Tag, target.NativePointer))
@@ -147,7 +148,11 @@ namespace Eto.Direct2D.Drawing
 			{
 				var output = new uint[1];
 				Control.CopyPixels(new s.Rectangle(x, y, 1, 1), output);
-				return new s.Color4(new s.ColorBGRA(output[0]).ToRgba()).ToEto();
+				var eto = new s.Color4(new s.ColorBGRA(output[0]).ToRgba()).ToEto();
+				if (Control.PixelFormat == sw.PixelFormat.Format24bppBGR)
+					return Color.FromRgb(eto.ToArgb());
+				else
+					return eto;
 			}
 			catch (s.SharpDXException ex)
 			{
@@ -222,6 +227,11 @@ namespace Eto.Direct2D.Drawing
 				}
 			}
 			return sdimage ?? (sdimage = Control.ToSD());
+		}
+
+		public virtual System.Drawing.Image GetImageWithSize(Size? size)
+		{
+			return GetImageWithSize(size?.Height);
 		}
 #endif
 	}

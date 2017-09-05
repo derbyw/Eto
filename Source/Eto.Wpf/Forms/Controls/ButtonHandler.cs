@@ -1,22 +1,35 @@
-using System;
+﻿using System;
 using Eto.Forms;
 using Eto.Drawing;
 #if WINRT
 using sw = Windows.UI.Xaml;
 using swc = Windows.UI.Xaml.Controls;
+using wf = Windows.Foundation;
 
 using WpfLabel = Windows.UI.Xaml.Controls.TextBlock;
+using EtoImage = Windows.UI.Xaml.Controls.Image;
 
 namespace Eto.WinRT.Forms.Controls
 #else
 using sw = System.Windows;
 using swc = System.Windows.Controls;
+using wf = System.Windows;
 
 using WpfLabel = System.Windows.Controls.Label;
 
 namespace Eto.Wpf.Forms.Controls
 #endif
 {
+	public class EtoButton : swc.Button, IEtoWpfControl
+	{
+		public IWpfFrameworkElement Handler { get; set; }
+
+		protected override wf.Size MeasureOverride(wf.Size constraint)
+		{
+			return Handler?.MeasureOverride(constraint, base.MeasureOverride) ?? base.MeasureOverride(constraint);
+		}
+	}
+
 	/// <summary>
 	/// Button handler.
 	/// </summary>
@@ -30,11 +43,11 @@ namespace Eto.Wpf.Forms.Controls
 
 		public static Size DefaultMinimumSize = new Size(80, 23);
 
-		protected override Size DefaultSize { get { return MinimumSize; } }
+		protected override wf.Size DefaultSize => MinimumSize.ToWpf();
 
 		public ButtonHandler()
 		{
-			Control = new swc.Button();
+			Control = new EtoButton { Handler = this };
 			Control.Click += (sender, e) => Callback.OnClick(Widget, EventArgs.Empty);
 			label = new WpfLabel
 			{
@@ -92,10 +105,33 @@ namespace Eto.Wpf.Forms.Controls
 #endif
 		static readonly object Image_Key = new object();
 
+#if WINRT
+		void SetImage()
+		{
+			swcimage.Source = Image.ToWpf();
+		}
+#else
+		protected override bool NeedsPixelSizeNotifications { get { return true; } }
+
+		protected override void OnLogicalPixelSizeChanged()
+		{
+			base.OnLogicalPixelSizeChanged();
+			SetImage();
+		}
+
+		void SetImage()
+		{
+			swcimage.Source = Image.ToWpf(ParentScale);
+		}
+#endif
+
 		public Image Image
 		{
 			get { return Widget.Properties.Get<Image>(Image_Key); }
-			set { Widget.Properties.Set(Image_Key, value, () => swcimage.Source = value.ToWpf()); }
+			set
+			{
+				Widget.Properties.Set(Image_Key, value, SetImage);
+			}
 		}
 
 		void SetImagePosition()
@@ -189,12 +225,7 @@ namespace Eto.Wpf.Forms.Controls
 				if (MinimumSize != value)
 				{
 					Widget.Properties[MinimumSize_Key] = value;
-#if WPF
-					if (Control.IsLoaded)
-						Control.UpdateLayout();
-#else
-					Control.UpdateLayout();
-#endif
+					Control.InvalidateMeasure();
 				}
 			}
 		}

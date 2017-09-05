@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using swf = System.Windows.Forms;
 using sd = System.Drawing;
 using Eto.Forms;
@@ -7,16 +7,57 @@ using Eto.WinForms.Drawing;
 
 namespace Eto.WinForms.Forms.Cells
 {
-	public class ImageTextCellHandler : CellHandler<ImageTextCellHandler.EtoCell, ImageTextCell, ImageTextCell.ICallback>, ImageTextCell.IHandler
+	public class ImageTextCellHandler : CellHandler<ImageTextCellHandler.EtoCell, ImageTextCell, ImageTextCell.ICallback>, ImageTextCell.IHandler, ITextCellHandler
 	{
 		public static int IconSize = 16;
 		public static int IconPadding = 2;
 
 		public class EtoCell : swf.DataGridViewTextBoxCell
 		{
+			bool wasClicked;
 			public ImageTextCellHandler Handler { get; set; }
 
+			public override Type EditType => typeof(EtoDataGridViewTextBoxEditingControl);
+
 			public sd.Drawing2D.InterpolationMode InterpolationMode { get; set; }
+
+			EtoDataGridViewTextBoxEditingControl EditingTextBox => DataGridView?.EditingControl as EtoDataGridViewTextBoxEditingControl;
+
+			public override void DetachEditingControl()
+			{
+				base.DetachEditingControl();
+				var editingControl = EditingTextBox;
+				if (editingControl != null)
+				{
+					editingControl.Handler = null;
+					editingControl.IsMouseDown = false;
+				}
+				wasClicked = false;
+			}
+
+			protected override void OnClick(swf.DataGridViewCellEventArgs e)
+			{
+				base.OnClick(e);
+				wasClicked = true;
+			}
+
+			protected override void OnMouseUp(swf.DataGridViewCellMouseEventArgs e)
+			{
+				base.OnMouseUp(e);
+				wasClicked = false;
+			}
+
+			public override void InitializeEditingControl(int rowIndex, object initialFormattedValue, swf.DataGridViewCellStyle dataGridViewCellStyle)
+			{
+				base.InitializeEditingControl(rowIndex, initialFormattedValue, dataGridViewCellStyle);
+
+				var editingControl = EditingTextBox;
+				if (editingControl != null)
+				{
+					editingControl.Handler = Handler;
+					editingControl.IsMouseDown = wasClicked;
+				}
+			}
 
 			public EtoCell()
 			{
@@ -127,6 +168,43 @@ namespace Eto.WinForms.Forms.Cells
 		{
 			get { return Control.InterpolationMode.ToEto(); }
 			set { Control.InterpolationMode = value.ToSD(); }
+		}
+
+		TextAlignment _textAlignment;
+		public TextAlignment TextAlignment
+		{
+			get { return _textAlignment; }
+			set
+			{
+				_textAlignment = value;
+				SetAlignment();
+			}
+		}
+
+		VerticalAlignment _verticalAlignment = VerticalAlignment.Center;
+		public VerticalAlignment VerticalAlignment
+		{
+			get { return _verticalAlignment; }
+			set
+			{
+				_verticalAlignment = value;
+				SetAlignment();
+			}
+		}
+
+		public AutoSelectMode AutoSelectMode { get; set; }
+
+		void SetAlignment()
+		{
+			if (Column == null)
+				return;
+			Column.DefaultCellStyle.Alignment = WinConversions.ToSWF(TextAlignment, VerticalAlignment);
+		}
+
+		protected override void InitializeColumn()
+		{
+			base.InitializeColumn();
+			SetAlignment();
 		}
 	}
 }

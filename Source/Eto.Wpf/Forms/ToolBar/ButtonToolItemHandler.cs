@@ -45,7 +45,7 @@ namespace Eto.Wpf.Forms.ToolBar
 			set
 			{
 				image = value;
-				swcImage.Source = image.ToWpf((int)swcImage.MaxWidth);
+				swcImage.Source = image.ToWpf(Screen.PrimaryScreen.LogicalPixelSize, swcImage.GetMaxSize().ToEtoSize());
 			}
 		}
 

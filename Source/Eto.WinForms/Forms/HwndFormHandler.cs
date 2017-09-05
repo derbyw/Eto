@@ -4,13 +4,13 @@ using System.Collections.Generic;
 using System.Linq;
 using Eto.Drawing;
 using sd = System.Drawing;
+using swf = System.Windows.Forms;
 
 #if WPF
 using swi = System.Windows.Interop;
 
 namespace Eto.Wpf.Forms
 #elif WINFORMS
-using swf = System.Windows.Forms;
 
 namespace Eto.WinForms.Forms
 #endif
@@ -82,18 +82,16 @@ namespace Eto.WinForms.Forms
 			throw new NotImplementedException();
 		}
 
-		public float Scale
+		public float LogicalPixelSize
 		{
 			get
 			{
-				var screen = System.Windows.Forms.Screen.FromHandle(Control);
+				if (Win32.PerMonitorDpiSupported)
+					return Win32.GetWindowDpi(Control) / 96.0f;
+				var screen = swf.Screen.FromHandle(Control);
 				if (screen == null)
-					return 1f;
-				using (var form = new System.Windows.Forms.Form { Bounds = screen.Bounds })
-				using (var graphics = form.CreateGraphics())
-				{
-					return graphics.DpiY / 96f;
-				}
+					return 1;
+				return screen.GetDpi() / 96f;
 			}
 		}
 
@@ -104,7 +102,7 @@ namespace Eto.WinForms.Forms
 				Win32.RECT rect;
 				Win32.GetWindowRect(Control, out rect);
 				var location = new PointF(rect.left, rect.top);
-				return Point.Round(location / Scale);
+				return Point.Round(location / (float)LogicalPixelSize);
 			}
 			set
 			{
@@ -336,7 +334,7 @@ namespace Eto.WinForms.Forms
 				Win32.RECT rect;
 				Win32.GetWindowRect(Control, out rect);
 				var size = new SizeF(rect.right - rect.left, rect.bottom - rect.top);
-				return Size.Round(size / Scale);
+				return Size.Round(size / (float)LogicalPixelSize);
 			}
 			set
 			{
@@ -356,12 +354,12 @@ namespace Eto.WinForms.Forms
 			}
 		}
 
-		public void Invalidate()
+		public void Invalidate(bool invalidateChildren)
 		{
 			throw new NotImplementedException();
 		}
 
-		public void Invalidate(Eto.Drawing.Rectangle rect)
+		public void Invalidate(Eto.Drawing.Rectangle rect, bool invalidateChildren)
 		{
 			throw new NotImplementedException();
 		}
@@ -484,7 +482,7 @@ namespace Eto.WinForms.Forms
 			}
 		}
 
-		public bool AllowDrag
+		public bool ShowActivated
 		{
 			get
 			{
@@ -497,13 +495,41 @@ namespace Eto.WinForms.Forms
 			}
 		}
 
-		public bool AllowDrop
+		public bool CanFocus
 		{
 			get
 			{
 				throw new NotImplementedException();
 			}
 
+			set
+			{
+				throw new NotImplementedException();
+			}
+		}
+
+		public int TabIndex { get; set; }
+
+		public IEnumerable<Control> VisualControls => Widget.Controls;
+
+		public bool AllowDrag
+		{
+			get
+			{
+				throw new NotImplementedException();
+			}
+			set
+			{
+				throw new NotImplementedException();
+			}
+		}
+
+		public bool AllowDrop
+		{
+			get
+			{
+				throw new NotImplementedException();
+			}
 			set
 			{
 				throw new NotImplementedException();

@@ -8,24 +8,28 @@ namespace Eto.Wpf.Forms
 {
 	public class PixelLayoutHandler : WpfLayout<swc.Canvas, PixelLayout, PixelLayout.ICallback>, PixelLayout.IHandler
 	{
-		public override sw.Size GetPreferredSize(sw.Size constraint)
+		public class EtoCanvas : swc.Canvas
 		{
-			var size = new sw.Size();
-			foreach (var control in Widget.VisualControls)
+			protected override sw.Size MeasureOverride(sw.Size constraint)
 			{
-				var container = control.GetContainerControl();
-				var preferredSize = control.GetPreferredSize(constraint);
-				var left = swc.Canvas.GetLeft(container) + preferredSize.Width;
-				var top = swc.Canvas.GetTop(container) + preferredSize.Height;
-				if (size.Width < left) size.Width = left;
-				if (size.Height < top) size.Height = top;
+				var size = new sw.Size();
+				
+				foreach (sw.UIElement control in Children)
+				{
+					control.Measure(constraint);
+					var preferredSize = control.DesiredSize;
+					var left = GetLeft(control) + preferredSize.Width;
+					var top = GetTop(control) + preferredSize.Height;
+					if (size.Width < left) size.Width = left;
+					if (size.Height < top) size.Height = top;
+				}
+				return size;
 			}
-			return size;
 		}
 
 		public PixelLayoutHandler()
 		{
-			Control = new swc.Canvas
+			Control = new EtoCanvas
 			{
 				SnapsToDevicePixels = true
 			};
@@ -65,6 +69,35 @@ namespace Eto.Wpf.Forms
 		{
 			Control.Children.Remove(child);
 			UpdatePreferredSize();
+		}
+
+		int suspended;
+		public override void SuspendLayout()
+		{
+			suspended++;
+			base.SuspendLayout();
+		}
+
+		public override void ResumeLayout()
+		{
+			if (suspended > 0)
+			{
+				suspended--;
+				UpdatePreferredSize();
+			}
+			base.ResumeLayout();
+		}
+		public override void OnLoad(EventArgs e)
+		{
+			base.OnLoad(e);
+			UpdatePreferredSize();
+		}
+
+		public override void UpdatePreferredSize()
+		{
+			Control.InvalidateMeasure();
+			if (suspended == 0 && Widget.Loaded)
+				base.UpdatePreferredSize();
 		}
 	}
 }

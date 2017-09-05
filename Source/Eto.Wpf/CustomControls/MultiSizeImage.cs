@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Eto.Wpf.Forms;
 
 namespace Eto.Wpf.CustomControls
 {
@@ -22,7 +23,7 @@ namespace Eto.Wpf.CustomControls
 	/// 
 	/// <para>Written by Isak Savo - isak.savo@gmail.com, (c) 2011-2012. Licensed under the Code Project  </para>
 	/// </remarks>
-	public class MultiSizeImage : Image
+	public class MultiSizeImage : Image, IEtoWpfControl
 	{
 		Brush background;
 		bool useSmallestSpace;
@@ -52,6 +53,8 @@ namespace Eto.Wpf.CustomControls
 				}
 			}
 		}
+
+		public IWpfFrameworkElement Handler { get; set; }
 
 		static MultiSizeImage()
 		{
@@ -94,7 +97,7 @@ namespace Eto.Wpf.CustomControls
 
 		protected override Size MeasureOverride(Size constraint)
 		{
-			return MeasureArrangeHelper(constraint);
+			return Handler?.MeasureOverride(constraint, MeasureArrangeHelper) ?? MeasureArrangeHelper(constraint);
 		}
 
 		static bool IsZero(double value)
@@ -155,17 +158,21 @@ namespace Eto.Wpf.CustomControls
 			}
 			return new Size(widthFactor, heightFactor);
 		}
+		Size GetSize(ImageSource src)
+		{
+			var bs = src as BitmapSource;
+			if (bs != null)
+				return new Size(bs.PixelWidth, bs.PixelHeight);
+			else
+				return new Size(Source.Width, Source.Height);
+		}
 
 		Size MeasureArrangeHelper(Size inputSize)
 		{
 			if (Source == null)
 				return new Size(0, 0);
 			var first = _availableFrames.LastOrDefault();
-			var size = new Size(Source.Width, Source.Height);
-			if (first == null)
-				return size;
-
-			size = new Size(first.Width, first.Height);
+			var size = GetSize(first ?? Source);
 
 			Size scale = ComputeScaleFactor(inputSize, size, Stretch, StretchDirection);
 			if (UseSmallestSpace)

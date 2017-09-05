@@ -9,6 +9,7 @@
     <RootNamespace>Eto.Test.Mac</RootNamespace>
     <LastXamMacNagTime>14/12/2012 1:15:16 AM</LastXamMacNagTime>
     <AssemblyName>Eto.Test.XamMac2</AssemblyName>
+    <UseXamMacFullFramework>true</UseXamMacFullFramework>
   </PropertyGroup>
   <PropertyGroup>
     <FileAlignment>512</FileAlignment>
@@ -60,11 +61,12 @@
       <HintPath>..\..\packages\Newtonsoft.Json.7.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="nunit.framework">
-      <HintPath>..\..\packages\NUnit.3.0.0\lib\portable-net45+win8+wp8+wpa81+Xamarin.Mac+MonoAndroid10+MonoTouch10+Xamarin.iOS10\nunit.framework.dll</HintPath>
+      <HintPath>..\..\packages\NUnit.3.4.1\lib\portable-net45+win8+wp8+wpa81+Xamarin.Mac+MonoAndroid10+MonoTouch10+Xamarin.iOS10\nunit.framework.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Startup.cs" />
+    <Compile Include="UnitTests\RichTextAreaHandlerTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />

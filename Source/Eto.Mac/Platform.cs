@@ -14,6 +14,7 @@ using Eto.Threading;
 using Eto.Mac.Forms.Cells;
 using Eto.Mac.Forms.ToolBar;
 using Eto.Shared.Forms;
+using Eto.Forms.ThemedControls;
 
 #if XAMMAC2
 using AppKit;
@@ -35,17 +36,22 @@ namespace Eto.Mac
 	[Preserve(AllMembers = true)]
 	public class Platform : Eto.Platform
 	{
+		static bool initialized;
+
 		public override bool IsDesktop { get { return true; } }
 
 		public override bool IsMac { get { return true; } }
 
 		#if XAMMAC
 		public override string ID { get { return "xammac"; } }
-
-#else
+		#else
 		public override string ID { get { return "mac"; } }
-		#endif
-		static bool initialized;
+#endif
+
+		public override PlatformFeatures SupportedFeatures =>
+			PlatformFeatures.DrawableWithTransparentContent
+            | PlatformFeatures.CustomCellSupportsControlView
+			| PlatformFeatures.TabIndexWithCustomContainers;
 
 		public Platform()
 		{
@@ -81,6 +87,7 @@ namespace Eto.Mac
 			p.Add<Graphics.IHandler>(() => new GraphicsHandler());
 			p.Add<GraphicsPath.IHandler>(() => new GraphicsPathHandler());
 			p.Add<Icon.IHandler>(() => new IconHandler());
+			p.Add<IconFrame.IHandler>(() => new IconFrameHandler());
 			p.Add<IndexedBitmap.IHandler>(() => new IndexedBitmapHandler());
 			p.Add<Matrix.IHandler>(() => new MatrixHandler());
 			p.Add<Pen.IHandler>(() => new PenHandler());
@@ -110,6 +117,7 @@ namespace Eto.Mac
 			p.Add<DateTimePicker.IHandler>(() => new DateTimePickerHandler());
 			p.Add<Drawable.IHandler>(() => new DrawableHandler());
 			p.Add<Expander.IHandler>(() => new ExpanderHandler());
+			p.Add<FontPicker.IHandler>(() => new ThemedFontPickerHandler());
 			p.Add<GridColumn.IHandler>(() => new GridColumnHandler());
 			p.Add<GridView.IHandler>(() => new GridViewHandler());
 			p.Add<GroupBox.IHandler>(() => new GroupBoxHandler());
@@ -117,7 +125,7 @@ namespace Eto.Mac
 			p.Add<Label.IHandler>(() => new LabelHandler());
 			p.Add<LinkButton.IHandler>(() => new LinkButtonHandler());
 			p.Add<ListBox.IHandler>(() => new ListBoxHandler());
-			p.Add<NumericUpDown.IHandler>(() => new NumericUpDownHandler());
+			p.Add<NumericStepper.IHandler>(() => new NumericStepperHandler());
 			p.Add<Panel.IHandler>(() => new PanelHandler());
 			p.Add<PasswordBox.IHandler>(() => new PasswordBoxHandler());
 			p.Add<ProgressBar.IHandler>(() => new ProgressBarHandler());
@@ -132,9 +140,14 @@ namespace Eto.Mac
 			p.Add<TextArea.IHandler>(() => new TextAreaHandler());
 			p.Add<TextBox.IHandler>(() => new TextBoxHandler());
 			p.Add<TreeGridView.IHandler>(() => new TreeGridViewHandler());
+#pragma warning disable CS0618 // Type or member is obsolete
 			p.Add<TreeView.IHandler>(() => new TreeViewHandler());
+#pragma warning restore CS0618 // Type or member is obsolete
 			p.Add<WebView.IHandler>(() => new WebViewHandler());
 			p.Add<RichTextArea.IHandler>(() => new RichTextAreaHandler());
+			p.Add<Stepper.IHandler>(() => new StepperHandler());
+			p.Add<TextStepper.IHandler>(() => new ThemedTextStepperHandler());
+			p.Add<FilePicker.IHandler>(() => new ThemedFilePickerHandler());
 
 			// Forms.Menu
 			p.Add<CheckMenuItem.IHandler>(() => new CheckMenuItemHandler());
@@ -157,6 +170,7 @@ namespace Eto.Mac
 			p.Add<ToolBar.IHandler>(() => new ToolBarHandler());
 			
 			// Forms
+			p.Add<AboutDialog.IHandler>(() => new ThemedAboutDialogHandler());
 			p.Add<Application.IHandler>(() => new ApplicationHandler());
 			p.Add<Clipboard.IHandler>(() => new ClipboardHandler());
 			p.Add<ColorDialog.IHandler>(() => new ColorDialogHandler());
@@ -175,6 +189,7 @@ namespace Eto.Mac
 			p.Add<Screen.IScreensHandler>(() => new ScreensHandler());
 			p.Add<Keyboard.IHandler>(() => new KeyboardHandler());
 			p.Add<FixedMaskedTextProvider.IHandler>(() => new FixedMaskedTextProviderHandler());
+			p.Add<OpenWithDialog.IHandler>(() => new OpenWithDialogHandler());
 
 			// IO
 			p.Add<SystemIcons.IHandler>(() => new SystemIconsHandler());

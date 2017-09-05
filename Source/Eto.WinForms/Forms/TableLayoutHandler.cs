@@ -58,6 +58,24 @@ namespace Eto.WinForms.Forms
 				height = Math.Max(curSize.Height, height);
 				base.SetBoundsCore(x, y, width, height, specified);
 			}
+
+			// optimization especially for content on drawable
+			protected override void OnBackColorChanged( EventArgs e )
+			{
+				SetStyle
+					( swf.ControlStyles.AllPaintingInWmPaint
+					| swf.ControlStyles.DoubleBuffer
+					, BackColor.A != 255 );
+				base.OnBackColorChanged( e );
+			}
+			protected override void OnParentBackColorChanged( EventArgs e )
+			{
+				SetStyle
+					( swf.ControlStyles.AllPaintingInWmPaint
+					| swf.ControlStyles.DoubleBuffer
+					, BackColor.A != 255 );
+				base.OnParentBackColorChanged( e );
+			}
 		}
 
 		public TableLayoutHandler()
@@ -206,6 +224,12 @@ namespace Eto.WinForms.Forms
 
 		class EmptyCell : swf.Control
 		{
+			protected override void CreateHandle()
+			{
+				base.CreateHandle();
+				SetStyle(System.Windows.Forms.ControlStyles.Selectable, false);
+			}
+
 		}
 
 		swf.Control CreateEmptyCell(int x, int y)

@@ -113,10 +113,36 @@ namespace Eto.Test.UnitTests.Handlers.Controls
 			}
 		}
 
+		public TextAlignment TextAlignment
+		{
+			get
+			{
+				throw new NotImplementedException();
+			}
+
+			set
+			{
+				throw new NotImplementedException();
+			}
+		}
+
+		public AutoSelectMode AutoSelectMode
+		{
+			get
+			{
+				throw new NotImplementedException();
+			}
+
+			set
+			{
+				throw new NotImplementedException();
+			}
+		}
+		
 		public void DoDragDrop()
 		{
 			throw new NotImplementedException();
-		}
+		}		
 	}
 }
 

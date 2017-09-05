@@ -138,6 +138,20 @@ namespace Eto.iOS.Forms
 			base.BringToFront();
 			await ShowModalAsync(false);
 		}
+
+		public void InsertDialogButton(bool positive, int index, Button item)
+		{
+			throw new NotImplementedException();
+		}
+
+		public void RemoveDialogButton(bool positive, int index, Button item)
+		{
+			throw new NotImplementedException();
+		}
+
+		public bool ShowActivated { get; set; }
+
+		public bool CanFocus { get; set; }
 	}
 }
 

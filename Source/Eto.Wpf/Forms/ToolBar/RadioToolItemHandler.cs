@@ -80,14 +80,18 @@ namespace Eto.Wpf.Forms.ToolBar
 			set
 			{
 				image = value;
-				swcImage.Source = image.ToWpf ((int)swcImage.MaxWidth);
+				swcImage.Source = image.ToWpf(Screen.PrimaryScreen.LogicalPixelSize, swcImage.GetMaxSize().ToEtoSize());
 			}
 		}
 
 		public override bool Enabled
 		{
 			get { return Control.IsEnabled; }
-			set { Control.IsEnabled = value; }
+			set
+			{
+				Control.IsEnabled = value;
+				Control.Opacity = value ? 1 : 0.5;
+			}
 		}
 	}
 }

@@ -29,13 +29,20 @@ namespace Eto.Mac.Forms.Controls
 			return new SizeF(16, 16);
 		}
 
+		public class EtoProgressIndicator : NSProgressIndicator, IMacControl
+		{
+			public WeakReference WeakHandler { get; set; }
+
+			public EtoProgressIndicator()
+			{
+				Style = NSProgressIndicatorStyle.Spinning;
+				ControlSize = NSControlSize.Regular;
+			}
+		}
+
 		protected override NSProgressIndicator CreateControl()
 		{
-			return new NSProgressIndicator
-			{
-				Style = NSProgressIndicatorStyle.Spinning,
-				ControlSize = NSControlSize.Regular
-			};
+			return new EtoProgressIndicator();
 		}
 
 		public SpinnerHandler()
@@ -53,12 +60,12 @@ namespace Eto.Mac.Forms.Controls
 		public override void OnSizeChanged(EventArgs e)
 		{
 			base.OnSizeChanged(e);
-			var size = Math.Max(Size.Width, Size.Height);
+			var size = Math.Min(Size.Width, Size.Height);
 			if (size <= 8)
 				Control.ControlSize = NSControlSize.Mini;
 			else if (size <= 20)
 				Control.ControlSize = NSControlSize.Small;
-			else if (size <= 30)
+			else //if (size <= 30)
 				Control.ControlSize = NSControlSize.Regular;
 			Control.SizeToFit();
 			Control.CenterInParent();

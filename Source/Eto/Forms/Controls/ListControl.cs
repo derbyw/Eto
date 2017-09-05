@@ -78,7 +78,22 @@ namespace Eto.Forms
 			else
 				base.InternalSetValue(dataItem, value);
 		}
+	}
 
+	class ListItemImageBinding : PropertyBinding<Image>
+	{
+		public ListItemImageBinding()
+			: base("Image")
+		{
+		}
+
+		protected override Image InternalGetValue(object dataItem)
+		{
+			var item = dataItem as IImageListItem;
+			if (item != null)
+				return item.Image;
+			return base.InternalGetValue(dataItem);
+		}
 	}
 
 	class ListItemKeyBinding : PropertyBinding<string>
@@ -414,7 +429,8 @@ namespace Eto.Forms
 			/// </summary>
 			public void OnSelectedIndexChanged(ListControl widget, EventArgs e)
 			{
-				widget.Platform.Invoke(() => widget.OnSelectedIndexChanged(e));
+				using (widget.Platform.Context)
+					widget.OnSelectedIndexChanged(e);
 			}
 		}
 

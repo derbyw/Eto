@@ -31,7 +31,13 @@ namespace Eto.Test.Sections
 				{
 					Application.AsyncInvoke(() => Log.Write(null, "Failed: {0}\n{1}", result.Message, result.StackTrace));
 				}
+				if (result.InconclusiveCount > 0)
+					Application.AsyncInvoke(() => Log.Write(null, "Inconclusive: {0}\n{1}", result.Message, result.StackTrace));
 			}
+		}
+
+		public void TestOutput(TestOutput output)
+		{
 		}
 
 		public void TestStarted(ITest test)
@@ -166,24 +172,30 @@ namespace Eto.Test.Sections
 	[Section("Automated Tests", "Unit Tests")]
 	public class UnitTestSection : Panel
 	{
-		TreeView tree;
+		TreeGridView tree;
 		Button startButton;
 		CheckBox useTestPlatform;
+		CheckBox includeManualTests;
 		SearchBox search;
 
 		public UnitTestSection()
 		{
 			startButton = new Button { Text = "Start Tests", Size = new Size(200, 80) };
 			useTestPlatform = new CheckBox { Text = "Use Test Platform" };
+			includeManualTests = new CheckBox { Text = "Manual Tests", Checked = true };
 			var buttons = new StackLayout
 			{
 				Padding = new Padding(10),
 				Spacing = 5,
 				HorizontalContentAlignment = HorizontalAlignment.Center,
-				Items = { startButton, useTestPlatform }
+				Items =
+				{
+					startButton,
+					TableLayout.Horizontal(useTestPlatform, includeManualTests)
+				}
 			};
 
-			if (Platform.Supports<TreeView>())
+			if (Platform.Supports<TreeGridView>())
 			{
 
 				search = new SearchBox();
@@ -202,7 +214,8 @@ namespace Eto.Test.Sections
 				timer.Elapsed += (sender, e) =>
 				{
 					timer.Stop();
-					PopulateTree(search.Text);
+					var searchText = search.Text;
+					Task.Factory.StartNew(() => PopulateTree(searchText));
 				};
 				search.TextChanged += (sender, e) => {
 					if (timer.Started)
@@ -210,11 +223,15 @@ namespace Eto.Test.Sections
 					timer.Start();
 				};
 
-				tree = new TreeView();
+				tree = new TreeGridView { ShowHeader = false };
+				tree.Columns.Add(new GridColumn
+				{
+					DataCell = new TextBoxCell { Binding = Binding.Property((UnitTestItem m) => m.Text) }
+				});
 
 				tree.Activated += (sender, e) =>
 				{
-					var item = (TreeItem)tree.SelectedItem;
+					var item = (TreeGridItem)tree.SelectedItem;
 					if (item != null)
 					{
 						RunTests(item.Tag as CategoryFilter);
@@ -245,7 +262,7 @@ namespace Eto.Test.Sections
 
 			public int AssertCount { get { return Results.Sum(r => r.AssertCount); } }
 
-			public IList<ITestResult> Children { get { return Results.SelectMany(r => r.Children).ToList(); } }
+			public IEnumerable<ITestResult> Children { get { return Results.SelectMany(r => r.Children); } }
 
 			public double Duration { get { return Results.Sum(r => r.Duration); } }
 
@@ -296,6 +313,7 @@ namespace Eto.Test.Sections
 			var keywords = search.Text;
 			Log.Write(null, "Starting tests...");
 			var testPlatform = useTestPlatform.Checked == true ? new TestPlatform() : Platform;
+			var runManualTests = includeManualTests.Checked == true;
 			try
 			{
 				await Task.Run(() =>
@@ -319,10 +337,12 @@ namespace Eto.Test.Sections
 								filter = filter ?? new CategoryFilter();
 								filter.Application = Application.Instance;
 								filter.ExecutingAssembly = assembly;
+								if (!runManualTests)
+									filter.ExcludeCategories.Add(UnitTests.TestBase.ManualTestCategory);
 								if (testPlatform is TestPlatform)
-									filter.IncludeCategories.Add(UnitTests.TestUtils.TestPlatformCategory);
+									filter.IncludeCategories.Add(UnitTests.TestBase.TestPlatformCategory);
 								else
-									filter.IncludeCategories.RemoveAll(r => r == UnitTests.TestUtils.TestPlatformCategory);
+									filter.IncludeCategories.RemoveAll(r => r == UnitTests.TestBase.TestPlatformCategory);
 								filter.Keyword = keywords;
 								using (testPlatform.Context)
 								{
@@ -379,11 +399,16 @@ namespace Eto.Test.Sections
 		void PopulateTree(string filter = null)
 		{
 			var testSuites = GetTestSuites().Select(suite => ToTree(suite.Assembly, suite, filter)).Where(r => r != null).ToList();
-			var treeData = new TreeItem(testSuites);
+			var treeData = new TreeGridItem(testSuites);
 			Application.Instance.AsyncInvoke(() => tree.DataStore = treeData);
 		}
 
-		TreeItem ToTree(Assembly assembly, ITest test, string filter)
+		class UnitTestItem : TreeGridItem
+		{
+			public string Text { get; set; }
+		}
+
+		TreeGridItem ToTree(Assembly assembly, ITest test, string filter)
 		{
 			// add a test
 			var name = test.Name;
@@ -393,7 +418,7 @@ namespace Eto.Test.Sections
 				name = an.Name;
 			}
 
-			var item = new TreeItem { Text = name, Tag = new SingleTestFilter { Test = test, Assembly = assembly } };
+			var item = new UnitTestItem { Text = name, Tag = new SingleTestFilter { Test = test, Assembly = assembly } };
 			var nameMatches = filter == null || test.FullName.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0;
 			if (test.HasChildren)
 			{
@@ -409,7 +434,7 @@ namespace Eto.Test.Sections
 				while (item.Children.Count == 1)
 				{
 					// collapse test nodes
-					var child = item.Children[0] as TreeItem;
+					var child = item.Children[0] as UnitTestItem;
 					if (child.Children.Count == 0)
 						break;
 					if (!child.Text.StartsWith(item.Text, StringComparison.Ordinal))

@@ -146,6 +146,25 @@ namespace Eto.Forms
 		}
 
 		/// <summary>
+		/// Initializes a new instance of the <see cref="Eto.Forms.Button"/> class.
+		/// </summary>
+		public Button()
+		{
+		}
+
+		/// <summary>
+		/// Initializes a new instance of the <see cref="Eto.Forms.Button"/> class with the specified <paramref name="click"/> handler.
+		/// </summary>
+		/// <remarks>
+		/// This is a convenience constructor to set up the click event.
+		/// </remarks>
+		/// <param name="click">Delegate to handle when the button is clicked.</param>
+		public Button(EventHandler<EventArgs> click)
+		{
+			Click += click;
+		}
+
+		/// <summary>
 		/// Triggers the <see cref="Click"/> event for the button, if the button is visable and enabled.
 		/// </summary>
 		public void PerformClick()
@@ -182,7 +201,8 @@ namespace Eto.Forms
 			/// </summary>
 			public void OnClick(Button widget, EventArgs e)
 			{
-				widget.Platform.Invoke(() => widget.OnClick(e));
+				using (widget.Platform.Context)
+					widget.OnClick(e);
 			}
 		}
 

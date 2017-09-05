@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Globalization;
+using System.Linq.Expressions;
 
 namespace Eto.Forms
 {
@@ -148,6 +149,39 @@ namespace Eto.Forms
 		}
 
 		/// <summary>
+		/// Converts the binding using the specified <paramref name="converter"/> object.
+		/// </summary>
+		/// <returns>A new binding that will be converted using the specified IValueConverter.</returns>
+		/// <param name="converter">Converter object to use when converting to/from the value</param>
+		/// <param name="conveterParameter">Parameter to pass to the converter.</param>
+		/// <param name="culture">Culture to use for conversion, null to use invariant culture.</param>
+		public IndirectBinding<TValue> Convert<TValue>(IValueConverter converter, object conveterParameter = null, CultureInfo culture = null)
+		{
+			culture = culture ?? CultureInfo.InvariantCulture;
+			return Convert(
+				val => (TValue)converter.Convert(val, typeof(TValue), conveterParameter, culture),
+				val => (T)converter.ConvertBack(val, typeof(T), conveterParameter, culture)
+			);
+		}
+
+		/// <summary>
+		/// Converts the binding using the specified <paramref name="converter"/> object.
+		/// </summary>
+		/// <returns>A new binding that will be converted using the specified IValueConverter.</returns>
+		/// <param name="converter">Converter object to use when converting to/from the value</param>
+		/// <param name="propertyType">Type for the converter to convert to</param>
+		/// <param name="conveterParameter">Parameter to pass to the converter.</param>
+		/// <param name="culture">Culture to use for conversion, null to use invariant culture.</param>
+		public IndirectBinding<object> Convert(IValueConverter converter, Type propertyType, object conveterParameter = null, CultureInfo culture = null)
+		{
+			culture = culture ?? CultureInfo.InvariantCulture;
+			return Convert(
+				val => converter.Convert(val, propertyType, conveterParameter, culture),
+				val => (T)converter.ConvertBack(val, typeof(T), conveterParameter, culture)
+			);
+		}
+
+		/// <summary>
 		/// Casts this binding value to another (compatible) type.
 		/// </summary>
 		/// <typeparam name="TValue">The type to cast the values of this binding to.</typeparam>
@@ -158,6 +192,87 @@ namespace Eto.Forms
 				(m, val) => SetValue(m, (T)(object)val),
 				addChangeEvent: (m, ev) => AddValueChangedHandler(m, ev),
 				removeChangeEvent: RemoveValueChangedHandler
+			);
+		}
+
+		/// <summary>
+		/// Binds to the specified child <paramref name="property"/> expression.
+		/// </summary>
+		/// <remarks>
+		/// This can be used to bind to properties of child objects of your view model, for example
+		/// <code>model.SomeProperty.ChildProperty</code>.
+		/// 
+		/// This will automatically look up the changed event either by a [Property]Changed event or INotifyPropertyChanged implementation
+		/// for each object in the heirarchy.
+		/// 
+		/// Note that you only really need to use this when you have an existing binding that you cannot change.
+		/// See <see cref="Binding.Property{T,TValue}(Expression{Func{T,TValue}})"/> for an example of how to bind to child property values
+		/// more directly.
+		/// </remarks>
+		/// <example>
+		/// Use this like so:
+		/// <code>
+		/// 	public class MyChild { public SomeChildProperty { get; set; } }
+		/// 	public class MyModel { public ChildObject { get; set; } }
+		/// 
+		/// 	Binding.Property((MyModel m) => m.ChildObject).Child(c => c.SomeChildProperty);
+		/// </code>
+		/// </example>
+		/// <returns>The binding to the child property accessed through the current binding.</returns>
+		/// <param name="property">Property to bind to.</param>
+		/// <typeparam name="TNewValue">The type of the child property value.</typeparam>
+		public IndirectBinding<TNewValue> Child<TNewValue>(Expression<Func<T, TNewValue>> property)
+		{
+			return Child(Property(property));
+		}
+
+		/// <summary>
+		/// Binds to the specified child <paramref name="binding"/> of this binding.
+		/// </summary>
+		/// <remarks>
+		/// This can be used to bind to child objects of your view model, for example
+		/// <code>model.SomeProperty.ChildProperty</code>.
+		/// </remarks>
+		/// <example>
+		/// Use this like so:
+		/// <code>
+		/// 	public class MyChild { public SomeChildProperty { get; set; } }
+		/// 	public class MyModel { public ChildObject { get; set; } }
+		/// 
+		/// 	Binding.Property((MyModel m) => m.ChildObject).Child(Binding.Property("SomeChildProperty"));
+		/// </code>
+		/// </example>
+		/// <returns>The binding to the child property accessed through the current binding.</returns>
+		/// <param name="binding">Binding to get the child value from this binding.</param>
+		/// <typeparam name="TNewValue">The type of the child property value.</typeparam>
+		public IndirectBinding<TNewValue> Child<TNewValue>(IndirectBinding<TNewValue> binding)
+		{
+			object bindingReference = null;
+			object childBindingReference = null;
+			object context = null;
+			EventHandler<EventArgs> eventHandler = null;
+			EventHandler<EventArgs> valueChanged = (sender, e) =>
+			{
+				binding.RemoveValueChangedHandler(childBindingReference, eventHandler);
+				eventHandler?.Invoke(sender, e);
+				childBindingReference = binding.AddValueChangedHandler(GetValue(context), eventHandler);
+			};
+			return new DelegateBinding<object, TNewValue>(
+				c => binding.GetValue(GetValue(context = c)),
+				(c, v) => binding.SetValue(GetValue(context = c), v),
+				addChangeEvent: (c, ev) =>
+				{
+					context = c;
+					eventHandler = ev;
+					bindingReference = AddValueChangedHandler(c, valueChanged);
+
+					childBindingReference = binding.AddValueChangedHandler(GetValue(c), ev);
+				},
+				removeChangeEvent: (c, ev) =>
+				{
+					binding.RemoveValueChangedHandler(childBindingReference, ev);
+					RemoveValueChangedHandler(bindingReference, valueChanged);
+				}
 			);
 		}
 
@@ -343,6 +458,104 @@ namespace Eto.Forms
 				},
 				addChangeEvent: (o, eh) => AddValueChangedHandler(o, eh),
 				removeChangeEvent: (o, eh) => RemoveValueChangedHandler(o, eh)
+			);
+		}
+
+		/// <summary>
+		/// Specifies that the binding should only respond to change events after a delay.
+		/// </summary>
+		/// <remarks>
+		/// This is useful if the property/delegate that is bound is expensive to retrieve the new value,
+		/// for example to dynamically generate a bitmap based on the state of the model, etc. 
+		/// 
+		/// The <paramref name="reset"/> boolean allows you to ensure that the binding is updated periodically when <c>false</c> (default), 
+		/// or <c>true</c> to wait for the delay period after the last change event.
+		/// </remarks>
+		/// <param name="delay">The delay time span to wait after the value has changed before updating the binding.</param>
+		/// <param name="reset"><c>true</c> to reset the delay every time the event is fired, <c>false</c> to trigger the change at least by the delay interval since the last time it was triggered</param>
+		/// <returns>A binding that will delay the change event</returns>
+		public IndirectBinding<T> AfterDelay(TimeSpan delay, bool reset = false)
+		{
+			return AfterDelay(delay.TotalSeconds, reset);
+		}
+
+		/// <summary>
+		/// Specifies that the binding should only respond to change events after a delay.
+		/// </summary>
+		/// <remarks>
+		/// This is useful if the property/delegate that is bound is expensive to retrieve the new value,
+		/// for example to dynamically generate a bitmap based on the state of the model, etc. 
+		/// 
+		/// The <paramref name="reset"/> boolean allows you to ensure that the binding is updated periodically when <c>false</c> (default), 
+		/// or <c>true</c> to wait for the delay period after the last change event.
+		/// </remarks>
+		/// <param name="delay">The delay, in seconds to wait after the value has changed before updating the binding.</param>
+		/// <param name="reset"><c>true</c> to reset the delay every time the event is fired, <c>false</c> to trigger the change at least by the delay interval since the last time it was triggered</param>
+		/// <returns>A binding that will delay the change event</returns>
+		public IndirectBinding<T> AfterDelay(double delay, bool reset = false)
+		{
+			UITimer timer = null;
+			EventArgs args = null;
+			object sender = null;
+			return new DelegateBinding<object, T>(
+				m => GetValue(m),
+				(m, val) => SetValue(m, val),
+				addChangeEvent: (m, ev) =>
+				{
+					EventHandler<EventArgs> ev2 = (s, e) =>
+					{
+						args = e;
+						sender = s;
+						if (timer == null)
+						{
+							timer = new UITimer { Interval = delay };
+							timer.Elapsed += (s2, e2) =>
+							{
+								timer.Stop();
+								ev(sender, args);
+							};
+						}
+						if (reset || !timer.Started)
+							timer.Start();
+					};
+					AddValueChangedHandler(m, ev2);
+				},
+				removeChangeEvent: RemoveValueChangedHandler
+			);
+		}
+
+		/// <summary>
+		/// Catches any exceptions when setting the value of the binding
+		/// </summary>
+		/// <param name="exceptionHandler">Handler to call when setting the value, regardless of whether an exception occurs. Return true when the exception is handled, false to throw an exception.</param>
+		/// <returns>The binding that catches any exception.</returns>
+		public IndirectBinding<T> CatchException(Func<Exception, bool> exceptionHandler = null) => CatchException<Exception>(exceptionHandler);
+
+		/// <summary>
+		/// Catches any exceptions of the specified <typeparamref name="TException"/> when setting the value of the binding.
+		/// </summary>
+		/// <typeparam name="TException">Type of the exception to catch</typeparam>
+		/// <param name="exceptionHandler">Handler to call when setting the value, regardless of whether an exception occurs. Return true when the exception is handled, false to throw an exception.</param>
+		/// <returns>The binding that catches the specified exception.</returns>
+		public IndirectBinding<T> CatchException<TException>(Func<TException, bool> exceptionHandler = null)
+			where TException : Exception
+		{
+			return new DelegateBinding<object, T>(
+				m => GetValue(m),
+				(m, val) => {
+					try
+					{
+						SetValue(m, val);
+						exceptionHandler?.Invoke(null);
+					}
+					catch (TException ex)
+					{
+						if (exceptionHandler?.Invoke(ex) == false)
+							throw;
+					}
+				},
+				addChangeEvent: (m, ev) => AddValueChangedHandler(m, ev),
+				removeChangeEvent: RemoveValueChangedHandler
 			);
 		}
 
