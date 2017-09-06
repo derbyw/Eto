@@ -581,7 +581,7 @@ namespace Eto.Forms
 		}
 
 		/// <summary>
-		/// Event identifier for handlers when attaching the <see cref="Control.DragDrop"/> event
+		/// Event identifier for handlers when attaching the <see cref="DragDrop"/> event
 		/// </summary>
 		public const string DragDropEvent = "Control.DragDrop";
 
@@ -604,7 +604,7 @@ namespace Eto.Forms
 		}
 
 		/// <summary>
-		/// Event identifier for handlers when attaching the <see cref="Control.DragOver"/> event
+		/// Event identifier for handlers when attaching the <see cref="DragOver"/> event
 		/// </summary>
 		public const string DragOverEvent = "Control.DragOver";
 
@@ -621,13 +621,10 @@ namespace Eto.Forms
 		/// Raises the <see cref="DragOver"/> event.
 		/// </summary>
 		/// <param name="e">Event arguments</param>
-		protected virtual void OnDragOver(DragEventArgs e)
-		{
-			Properties.TriggerEvent(DragOverEvent, this, e);
-		}
+		protected virtual void OnDragOver(DragEventArgs e) => Properties.TriggerEvent(DragOverEvent, this, e);
 
 		/// <summary>
-		/// Event identifier for handlers when attaching the <see cref="Control.DragEnter"/> event
+		/// Event identifier for handlers when attaching the <see cref="DragEnter"/> event
 		/// </summary>
 		public const string DragEnterEvent = "Control.DragEnter";
 
@@ -644,10 +641,27 @@ namespace Eto.Forms
 		/// Raises the <see cref="DragEnter"/> event.
 		/// </summary>
 		/// <param name="e">Event arguments</param>
-		protected virtual void OnDragEnter(DragEventArgs e)
+		protected virtual void OnDragEnter(DragEventArgs e) => Properties.TriggerEvent(DragEnterEvent, this, e);
+
+		/// <summary>
+		/// Event identifier for handlers when attaching the <see cref="DragLeave"/> event
+		/// </summary>
+		public const string DragLeaveEvent = "Control.DragLeave";
+
+		/// <summary>
+		/// Occurs when a drag operation leaves the bounds of the control.
+		/// </summary>
+		public event EventHandler<DragEventArgs> DragLeave
 		{
-			Properties.TriggerEvent(DragEnterEvent, this, e);
+			add { Properties.AddHandlerEvent(DragLeaveEvent, value); }
+			remove { Properties.RemoveEvent(DragLeaveEvent, value); }
 		}
+
+		/// <summary>
+		/// Raises the <see cref="DragLeave"/> event.
+		/// </summary>
+		/// <param name="e">Event arguments</param>
+		protected virtual void OnDragLeave(DragEventArgs e) => Properties.TriggerEvent(DragLeaveEvent, this, e);
 
 		#endregion
 
@@ -670,6 +684,7 @@ namespace Eto.Forms
 			EventLookup.Register<Control>(c => c.OnDragDrop(null), Control.DragDropEvent);
 			EventLookup.Register<Control>(c => c.OnDragOver(null), Control.DragOverEvent);
 			EventLookup.Register<Control>(c => c.OnDragEnter(null), Control.DragEnterEvent);
+			EventLookup.Register<Control>(c => c.OnDragLeave(null), Control.DragLeaveEvent);
 		}
 
 		/// <summary>
@@ -1366,6 +1381,10 @@ namespace Eto.Forms
 			/// Raises the DragEnter event.
 			/// </summary>
 			void OnDragEnter(Control widget, DragEventArgs e);
+			/// <summary>
+			/// Raises the DragLeave event.
+			/// </summary>
+			void OnDragLeave(Control widget, DragEventArgs e);
 		}
 
 		/// <summary>
@@ -1511,6 +1530,15 @@ namespace Eto.Forms
 			{
 				using (widget.Platform.Context)
 					widget.OnDragEnter(e);
+			}
+
+			/// <summary>
+			/// Raises the DragLeave event.
+			/// </summary>
+			public void OnDragLeave(Control widget, DragEventArgs e)
+			{
+				using (widget.Platform.Context)
+					widget.OnDragLeave(e);
 			}
 		}
 

@@ -472,7 +472,7 @@ namespace Eto.Wpf.Forms
 					HandleEvent(Eto.Forms.Control.GotFocusEvent);
 					break;
 				case Eto.Forms.Control.DragDropEvent:
-					Control.Drop += (sender, e) =>
+					Control.PreviewDrop += (sender, e) =>
 					{
 						var args = GetDragEventArgs(e);
 						Callback.OnDragDrop(Widget, args);
@@ -481,7 +481,7 @@ namespace Eto.Wpf.Forms
 					};
 					break;
 				case Eto.Forms.Control.DragOverEvent:
-					Control.DragOver += (sender, e) =>
+					Control.PreviewDragOver += (sender, e) =>
 					{
 						var args = GetDragEventArgs(e);
 						Callback.OnDragOver(Widget, args);
@@ -490,7 +490,16 @@ namespace Eto.Wpf.Forms
                     };
 					break;
 				case Eto.Forms.Control.DragEnterEvent:
-					Control.DragEnter += (sender, e) =>
+					Control.PreviewDragEnter += (sender, e) =>
+					{
+						var args = GetDragEventArgs(e);
+						Callback.OnDragEnter(Widget, args);
+						e.Handled = args.Handled;
+						e.Effects = args.Effects.ToWpf();
+					};
+					break;
+				case Eto.Forms.Control.DragLeaveEvent:
+					Control.PreviewDragLeave += (sender, e) =>
 					{
 						var args = GetDragEventArgs(e);
 						Callback.OnDragEnter(Widget, args);

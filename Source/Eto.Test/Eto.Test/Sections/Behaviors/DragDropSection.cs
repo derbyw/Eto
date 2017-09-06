@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Eto.Forms;
 using System.Text;
 using Eto.Drawing;
@@ -11,16 +11,17 @@ namespace Eto.Test.Sections.Behaviors
 	{
 		public DragDropSection()
 		{
-			var buttonSource = new Button() { Text = "Source", AllowDrag = true };
-			var panelSource = new Panel() { BackgroundColor = Colors.Red, AllowDrag = true, Width = 20, Height = 20 };
-			var buttonDestination = new Button() { Text = "Drop here!", AllowDrop = true };
-						
+			var buttonSource = new Button { Text = "Source", AllowDrag = true };
+			var panelSource = new Panel { BackgroundColor = Colors.Red, AllowDrag = true, Width = 50, Height = 50 };
+			var buttonDestination = new Button { Text = "Drop here!", AllowDrop = true };
+			var showDragOverEvents = new CheckBox { Text = "Show DragOver Events" };
+
 			buttonSource.MouseDown += (sender, e) =>
 			{
-				buttonSource.DoDragDrop(new DataObject()
+				buttonSource.DoDragDrop(new DataObject
 				{
 					Text = "test button",
-					Uris = new List<Uri>()
+					Uris = new Uri[]
 					{
 						new Uri(@"c:\button.txt"),
 						new Uri(@"c:\test2.txt"),
@@ -33,93 +34,64 @@ namespace Eto.Test.Sections.Behaviors
 				panelSource.DoDragDrop(new DataObject(), DragEffects.Link);
 			};
 
-			buttonDestination.DragDrop += (sender, e) =>
-			{
-				var obj = "Uknown";
+			buttonDestination.DragDrop += (sender, e) => Log.Write(sender, $"DragDrop: {WriteDragInfo(e)}");
 
-				if (e.Source != null)
-				{
-					obj = e.Source.GetType().ToString();
-				}
-
-				if (e.Data != null)
-				{
-					Log.Write(sender, "Dropped text data: " + e.Data.Text);
-					Log.Write(sender, "Dropped URIs:");
-					foreach (var uri in e.Data.Uris)
-					{
-						Log.Write(sender, uri.LocalPath);
-					}
-				}
-
-				buttonDestination.Text = obj + " object dropped.";
-			};
+			buttonDestination.DragEnter += (sender, e) => Log.Write(sender, $"DragEnter: {WriteDragInfo(e)}");
+			buttonDestination.DragLeave += (sender, e) => Log.Write(sender, $"DragLeave: {WriteDragInfo(e)}");
 
 			buttonDestination.DragOver += (sender, e) =>
 			{
-				var obj = "Uknown";
+				if (showDragOverEvents.Checked == true)
+					Log.Write(sender, $"DragOver: {WriteDragInfo(e)}");
+				e.Handled = true;
 
 				if (e.Source != null)
 				{
-					obj = e.Source.GetType().ToString();
-
 					// As example allow drop of button objects but not panels
 					if (e.Source is Button)
-					{
 						e.Effects = DragEffects.Link;
-					}
 					else
-					{
 						e.Effects = DragEffects.None;
-					}
 				}
 				else
 				{
-					e.Effects = DragEffects.Link;
+					e.Effects = DragEffects.Copy;
 				}
-
-				buttonDestination.Text = obj + " object dragged over.";
 			};
 
-			var content = new TableLayout()
+			var layout = new DynamicLayout { Padding = 10, DefaultSpacing = new Size(4, 4) };
+			layout.BeginCentered();
+			layout.Add(showDragOverEvents);
+			layout.EndCentered();
+			layout.BeginHorizontal();
+			layout.AddColumn("Drag sources:", buttonSource, panelSource, null);
+			layout.Add(null);
+			layout.AddColumn("Drag destinations:", buttonDestination, null);
+			layout.EndHorizontal();
+
+			Content = layout;
+		}
+
+		string WriteDragInfo(DragEventArgs e)
+		{
+			e.Handled = true;
+
+			var sb = new StringBuilder();
+			var obj = e.Source?.GetType().ToString() ?? "Uknown";
+			sb.AppendLine($"Source: {obj}");
+
+			var data = e.Data;
+			if (data.Text != null)
+				sb.AppendLine("Dropped text data: " + data.Text);
+			if (data.Uris != null)
 			{
-				Rows = {
-					new TableRow()
-					{
-						Cells = {
-							new TableCell()
-							{
-								Control = buttonSource
-							},
-							new TableCell()
-							{
-								ScaleWidth = true
-							},
-							new TableCell()
-							{
-								Control = buttonDestination
-							}
-						}
-					},
-					new TableRow()
-					{
-						Cells = {
-							new TableCell()
-							{
-								Control = panelSource
-							},
-							new TableCell()
-							{
-								ScaleWidth = true
-							}
-						}
-					},
-					new TableRow()
-				},
-				Padding = new Padding(10)
-			};
-
-			this.Content = content;
+				sb.AppendLine("Dropped URIs:");
+				foreach (var uri in data.Uris)
+				{
+					sb.AppendLine("\t" + uri.LocalPath);
+				}
+			}
+			return sb.ToString();
 		}
 	}
 }

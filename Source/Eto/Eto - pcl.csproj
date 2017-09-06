@@ -68,8 +68,8 @@
     <Compile Include="Forms\Controls\ThemedControlHandler.cs" />
     <Compile Include="Forms\Controls\TreeItem.cs" />
     <Compile Include="Forms\Controls\TreeView.cs" />
+    <Compile Include="Forms\DataObject.cs" />
     <Compile Include="Forms\DataStoreVirtualCollection.cs" />
-    <Compile Include="Forms\DragDropData.cs" />
     <Compile Include="Forms\Layout\DynamicControl.cs" />
     <Compile Include="Forms\Layout\DynamicItem.cs" />
     <Compile Include="Forms\Layout\DynamicTable.cs" />
