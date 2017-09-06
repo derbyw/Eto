@@ -414,9 +414,9 @@ namespace Eto.WinForms.Forms
 						if (Control.AllowDrop == true)
 						{
 							var dragParams = GetDragData(e);
-							Callback.OnDragEnter(Widget, dragParams);
+							Callback.OnDragOver(Widget, dragParams);
 
-							e.Effect = dragParams.Effect.ToPlatformDropAction();
+							e.Effect = dragParams.Effects.ToWpf();
 						}
 					};
 					break;
@@ -428,10 +428,10 @@ namespace Eto.WinForms.Forms
 
 		DragEventArgs GetDragData(swf.DragEventArgs data)
 		{
-			var dragData = (data.Data as swf.DataObject).ToEtoDataObject();
+			var dragData = (data.Data as swf.DataObject).ToEto();
 			var sourceWidget = data.Data.GetData("source");
 			var source = sourceWidget == null ? null : (Control)sourceWidget;
-			return new DragEventArgs(source, dragData, data.AllowedEffect.ToEtoDropAction());
+			return new DragEventArgs(source, dragData, data.AllowedEffect.ToEto());
 		}
 
 		void HandleMouseWheel(object sender, swf.MouseEventArgs e)
@@ -862,11 +862,11 @@ namespace Eto.WinForms.Forms
 			}
 		}
 
-		public void DoDragDrop(DragDropData data, DragDropAction allowedAction)
+		public void DoDragDrop(DataObject data, DragEffects allowedAction)
 		{
-			var dataObject = data.ToPlatformDataObject();
+			var dataObject = data.ToWpf();
 			dataObject.SetData("source", Widget);
-			var action = allowedAction.ToPlatformDropAction();
+			var action = allowedAction.ToWpf();
 			Control.DoDragDrop(dataObject, action);
 		}
 	}

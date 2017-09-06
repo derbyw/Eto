@@ -223,7 +223,7 @@ namespace Eto.Test.UnitTests.Handlers.Controls
 			}
 		}
 
-		public void DoDragDrop(DragDropData data, DragDropAction allowedAction)
+		public void DoDragDrop(DataObject data, DragEffects allowedAction)
 		{
 			throw new NotImplementedException();
 		}

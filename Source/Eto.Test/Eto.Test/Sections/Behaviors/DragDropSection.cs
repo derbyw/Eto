@@ -17,7 +17,7 @@ namespace Eto.Test.Sections.Behaviors
 						
 			buttonSource.MouseDown += (sender, e) =>
 			{
-				buttonSource.DoDragDrop(new DragDropData()
+				buttonSource.DoDragDrop(new DataObject()
 				{
 					Text = "test button",
 					Uris = new List<Uri>()
@@ -25,12 +25,12 @@ namespace Eto.Test.Sections.Behaviors
 						new Uri(@"c:\button.txt"),
 						new Uri(@"c:\test2.txt"),
 					}
-				}, DragDropAction.Link);
+				}, DragEffects.Link);
 			};
 
 			panelSource.MouseDown += (sender, e) =>
 			{
-				panelSource.DoDragDrop(new DragDropData(), DragDropAction.Link);
+				panelSource.DoDragDrop(new DataObject(), DragEffects.Link);
 			};
 
 			buttonDestination.DragDrop += (sender, e) =>
@@ -66,16 +66,16 @@ namespace Eto.Test.Sections.Behaviors
 					// As example allow drop of button objects but not panels
 					if (e.Source is Button)
 					{
-						e.Effect = DragDropAction.Link;
+						e.Effects = DragEffects.Link;
 					}
 					else
 					{
-						e.Effect = DragDropAction.None;
+						e.Effects = DragEffects.None;
 					}
 				}
 				else
 				{
-					e.Effect = DragDropAction.Link;
+					e.Effects = DragEffects.Link;
 				}
 
 				buttonDestination.Text = obj + " object dragged over.";

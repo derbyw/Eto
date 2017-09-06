@@ -367,7 +367,7 @@ namespace Eto.Forms
 		/// </summary>
 		/// <param name="data">Drag data.</param>
 		/// <param name="allowedAction">Allowed action.</param>
-		public void DoDragDrop(DragDropData data, DragDropAction allowedAction)
+		public void DoDragDrop(DataObject data, DragEffects allowedAction)
 		{
 			Control.DoDragDrop(data, allowedAction);
 		}

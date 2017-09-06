@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 
 namespace Eto.Forms
@@ -6,7 +6,8 @@ namespace Eto.Forms
 	/// <summary>
 	/// Enumeration of drag actions.
 	/// </summary>
-	public enum DragDropAction
+	[Flags]
+	public enum DragEffects
 	{
 		/// <summary>
 		/// No drag operation.
@@ -38,43 +39,36 @@ namespace Eto.Forms
 		/// <summary>
 		/// Gets source control of drag operation.
 		/// </summary>
-		public Control Source
-		{
-			get;
-		}
+		public Control Source { get; }
 
 		/// <summary>
 		/// Gets drag data.
 		/// </summary>
-		public DragDropData Data
-		{
-			get;
-		}
+		public DataObject Data { get; }
 
 		/// <summary>
 		/// Gets allowed drag/drop operation.
 		/// </summary>
-		public DragDropAction AllowedAction
-		{
-			get;
-		}
+		public DragEffects AllowedEffects { get; }
 
 		/// <summary>
 		/// Gets or sets target drag/drop operation.
 		/// </summary>
-		public DragDropAction Effect = DragDropAction.None;
+		public DragEffects Effects { get; set; }
+
+		public bool Handled { get; set; }
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="Eto.Forms.DragEventArgs"/> class.
 		/// </summary>
 		/// <param name="source">Drag operation source control.</param>
 		/// <param name="data">Drag data.</param>
-		/// <param name="allowedAction">Allowed operation.</param>
-		public DragEventArgs(Control source, DragDropData data, DragDropAction allowedAction)
+		/// <param name="allowedEffects">Allowed operation.</param>
+		public DragEventArgs(Control source, DataObject data, DragEffects allowedEffects)
 		{
 			Data = data;
 			Source = source;
-			AllowedAction = allowedAction;
+			AllowedEffects = allowedEffects;
 		}
 	}
 }

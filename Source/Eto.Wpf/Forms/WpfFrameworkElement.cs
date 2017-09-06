@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Eto.Forms;
 using Eto.Drawing;
 using sw = System.Windows;
@@ -474,24 +474,29 @@ namespace Eto.Wpf.Forms
 				case Eto.Forms.Control.DragDropEvent:
 					Control.Drop += (sender, e) =>
 					{
-						Callback.OnDragDrop(Widget, GetDragData(e));
-                    };
+						var args = GetDragEventArgs(e);
+						Callback.OnDragDrop(Widget, args);
+						e.Handled = args.Handled;
+						e.Effects = args.Effects.ToWpf();
+					};
 					break;
 				case Eto.Forms.Control.DragOverEvent:
 					Control.DragOver += (sender, e) =>
 					{
-                        if (Control.AllowDrop == true)
-                        {
-                            var dragParams = GetDragData(e);
-                            Callback.OnDragEnter(Widget, dragParams);
-                            
-                            e.Effects = dragParams.Effect.ToPlatformDropAction();
-                        }
-                        else
-                        {
-                            e.Effects = System.Windows.DragDropEffects.None;
-                        }
+						var args = GetDragEventArgs(e);
+						Callback.OnDragOver(Widget, args);
+						e.Handled = args.Handled;
+						e.Effects = args.Effects.ToWpf();
                     };
+					break;
+				case Eto.Forms.Control.DragEnterEvent:
+					Control.DragEnter += (sender, e) =>
+					{
+						var args = GetDragEventArgs(e);
+						Callback.OnDragEnter(Widget, args);
+						e.Handled = args.Handled;
+						e.Effects = args.Effects.ToWpf();
+					};
 					break;
 
 				default:
@@ -500,12 +505,12 @@ namespace Eto.Wpf.Forms
 			}
 		}
 
-        DragEventArgs GetDragData(sw.DragEventArgs data)
+        DragEventArgs GetDragEventArgs(sw.DragEventArgs data)
         {
-            var dragData = (data.Data as sw.DataObject).ToEtoDataObject();
+            var dragData = (data.Data as sw.DataObject).ToEto();
             var sourceWidget = data.Data.GetData("source");
             var source = sourceWidget == null ? null : (Control)sourceWidget;
-            return new DragEventArgs(source, dragData, data.AllowedEffects.ToEtoDropAction());
+            return new DragEventArgs(source, dragData, data.AllowedEffects.ToEto());
         }
 
         void HandleTextInput(object sender, swi.TextCompositionEventArgs e)
@@ -713,11 +718,11 @@ namespace Eto.Wpf.Forms
 
 		public virtual IEnumerable<Control> VisualControls => Enumerable.Empty<Control>();
 
-        public void DoDragDrop(DragDropData data, DragDropAction allowedAction)
+        public void DoDragDrop(DataObject data, DragEffects allowedAction)
         {
-            var dataObject = data.ToPlatformDataObject();
+            var dataObject = data.ToWpf();
             dataObject.SetData("source", Widget);
-            sw.DragDrop.DoDragDrop(Control, dataObject, allowedAction.ToPlatformDropAction());
+            sw.DragDrop.DoDragDrop(Control, dataObject, allowedAction.ToWpf());
         }
 	}
 }

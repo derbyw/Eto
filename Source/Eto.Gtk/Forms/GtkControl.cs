@@ -442,7 +442,7 @@ namespace Eto.GtkSharp.Forms
 					uris.AddRange(Encoding.UTF8.GetString(args.SelectionData.Data).TrimEnd('\0').Split(Environment.NewLine.ToCharArray(), StringSplitOptions.RemoveEmptyEntries).Select(a => new Uri(a)));
 				}
 
-				var dropData = new DragDropData()
+				var dropData = new DataObject()
 				{
 					Text = args.SelectionData.Text,
 					Uris = uris
@@ -462,7 +462,7 @@ namespace Eto.GtkSharp.Forms
 				}
 				else
 				{
-					Handler.Callback.OnDragEnter(Handler.Widget, dragArgs);
+					Handler.Callback.OnDragOver(Handler.Widget, dragArgs);
 				}
 			}
 
@@ -494,7 +494,7 @@ namespace Eto.GtkSharp.Forms
 			{
 				dragDataForDrop = false;
 				Gtk.Drag.GetData(Handler.Control, args.Context, Gdk.Atom.Intern("text", true), args.Time);  
-				Gdk.Drag.Status(args.Context, dragArgs.Effect.ToPlatformDropAction(), args.Time);
+				Gdk.Drag.Status(args.Context, dragArgs.Effects.ToPlatformDropAction(), args.Time);
 				args.RetVal = true;
 			}
 
@@ -807,7 +807,7 @@ namespace Eto.GtkSharp.Forms
 			}
 		}
 
-		public void DoDragDrop(DragDropData data, DragDropAction allowedAction)
+		public void DoDragDrop(DataObject data, DragEffects allowedAction)
 		{
 			var targets = new Gtk.TargetList();
 			targets.AddTextTargets(0);

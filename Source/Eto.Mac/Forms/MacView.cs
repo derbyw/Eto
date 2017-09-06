@@ -927,7 +927,7 @@ namespace Eto.Mac.Forms
             get; set;
         }
 
-        public void DoDragDrop(DragDropData data, DragDropAction allowedAction)
+        public void DoDragDrop(DataObject data, DragEffects allowedAction)
         {
         }
 	}

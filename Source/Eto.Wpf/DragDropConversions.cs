@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -16,21 +16,21 @@ namespace Eto
 {
 	public static class DragDropConversions
 	{
-		public static sw.DragDropEffects ToPlatformDropAction(this eto.DragDropAction action)
+		public static sw.DragDropEffects ToWpf(this eto.DragEffects action)
 		{
 			var resultAction = sw.DragDropEffects.None;
 
-			if ((action & eto.DragDropAction.Copy) > 0)
+			if ((action & eto.DragEffects.Copy) > 0)
 			{
 				resultAction |= sw.DragDropEffects.Copy;
 			}
 
-			if ((action & eto.DragDropAction.Move) > 0)
+			if ((action & eto.DragEffects.Move) > 0)
 			{
 				resultAction |= sw.DragDropEffects.Move;
 			}
 
-			if ((action & eto.DragDropAction.Link) > 0)
+			if ((action & eto.DragEffects.Link) > 0)
 			{
 				resultAction |= sw.DragDropEffects.Link;
 			}
@@ -38,29 +38,29 @@ namespace Eto
 			return resultAction;
 		}
 
-		public static eto.DragDropAction ToEtoDropAction(this sw.DragDropEffects effects)
+		public static eto.DragEffects ToEto(this sw.DragDropEffects effects)
 		{
-			eto.DragDropAction action = (eto.DragDropAction)0;
+			eto.DragEffects action = (eto.DragEffects)0;
 
 			if ((effects & sw.DragDropEffects.Copy) != 0)
 			{
-				action |= eto.DragDropAction.Copy;
+				action |= eto.DragEffects.Copy;
 			}
 
 			if ((effects & sw.DragDropEffects.Move) != 0)
 			{
-				action |= eto.DragDropAction.Move;
+				action |= eto.DragEffects.Move;
 			}
 
 			if ((effects & sw.DragDropEffects.Link) != 0)
 			{
-				action |= eto.DragDropAction.Link;
+				action |= eto.DragEffects.Link;
 			}
 
 			return action;
 		}
 
-		public static sw.DataObject ToPlatformDataObject(this eto.DragDropData data)
+		public static sw.DataObject ToWpf(this eto.DataObject data)
 		{
 			var resultData = new sw.DataObject();
 
@@ -83,9 +83,9 @@ namespace Eto
 			return resultData;
 		}
 
-		public static eto.DragDropData ToEtoDataObject(this sw.DataObject data)
+		public static eto.DataObject ToEto(this sw.DataObject data)
 		{
-			var resultData = new eto.DragDropData();
+			var resultData = new eto.DataObject();
 			resultData.Text = data.GetText();
 
 			if (data.ContainsFileDropList())
