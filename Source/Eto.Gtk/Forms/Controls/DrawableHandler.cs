@@ -91,14 +91,29 @@ namespace Eto.GtkSharp.Forms.Controls
 				if (!GraphicsHandler.GetClipRectangle(args.Cr, ref rect))
 					rect = new Gdk.Rectangle(Gdk.Point.Zero, allocation);
 				
-				using (var pc = h.Control.CreatePangoContext ()) {
-					using (var graphics = new Graphics (new GraphicsHandler (args.Cr, pc, false))) {
+				
+				if (Gtk.Global.MinorVersion >= 18) {
+					using (Pango.Context pc = h.Control.CreatePangoContext ()) {
+						using (var graphics = new Graphics (new GraphicsHandler (args.Cr, pc, false))) {
+							if (h.SelectedBackgroundColor != null)
+								graphics.Clear (h.SelectedBackgroundColor.Value);
+
+							h.Callback.OnPaint (h.Widget, new PaintEventArgs (graphics, rect.ToEto ()));
+						}
+					}
+				} else {
+					// the "stock" v 3.0.0.0 gtk-sharp3 on pre 17.x ubuntu is ancient and has a few oddities
+					// -- among them apparently the pango context is "auto Disposed" 
+					// newer gtk-sharp code will leak badly here					
+					using (var graphics = new Graphics (new GraphicsHandler (args.Cr, h.Control.CreatePangoContext (), false))) {
+
+
 						if (h.SelectedBackgroundColor != null)
 							graphics.Clear (h.SelectedBackgroundColor.Value);
-					
+
 						h.Callback.OnPaint (h.Widget, new PaintEventArgs (graphics, rect.ToEto ()));
 					}
-				}
+				}				
 			}
 #endif
 		}
