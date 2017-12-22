@@ -47,34 +47,61 @@ namespace Eto.GtkSharp.Forms.Controls
 			public new ImageViewHandler Handler { get { return (ImageViewHandler)base.Handler; } }
 
 #if GTK2
-			public void HandleExpose(object o, Gtk.ExposeEventArgs args)
-			{
-				Gdk.EventExpose ev = args.Event;
-				var h = Handler;
-				var handler = new GraphicsHandler(h.Control, ev.Window);
-#else
-			public void HandleDrawn(object o, Gtk.DrawnArgs args)
-			{
-				var h = Handler;
-				var handler = new GraphicsHandler(args.Cr, h.Control.CreatePangoContext(), false);
-#endif
-				if (h.image == null)
-					return;
-				using (var graphics = new Graphics(handler))
-				{
+		public void HandleExpose(object o, Gtk.ExposeEventArgs args)
+		{
+			Gdk.EventExpose ev = args.Event;
+			var h = Handler;
+			var handler = new GraphicsHandler(h.Control, ev.Window);
 
-					var widgetSize = new Size(h.Control.Allocation.Width, h.Control.Allocation.Height);
-					var imageSize = (SizeF)h.image.Size;
-					var scaleWidth = widgetSize.Width / imageSize.Width;
-					var scaleHeight = widgetSize.Height / imageSize.Height;
-					imageSize *= Math.Min(scaleWidth, scaleHeight);
-					var location = new PointF((widgetSize.Width - imageSize.Width) / 2, (widgetSize.Height - imageSize.Height) / 2);
+			if (h.image == null)
+				return;
+			using (var graphics = new Graphics(handler))
+			{
 
-					var destRect = new Rectangle(Point.Round(location), Size.Truncate(imageSize));
-					graphics.DrawImage(h.image, destRect);
-				}
+				var widgetSize = new Size(h.Control.Allocation.Width, h.Control.Allocation.Height);
+				var imageSize = (SizeF)h.image.Size;
+				var scaleWidth = widgetSize.Width / imageSize.Width;
+				var scaleHeight = widgetSize.Height / imageSize.Height;
+				imageSize *= Math.Min(scaleWidth, scaleHeight);
+				var location = new PointF((widgetSize.Width - imageSize.Width) / 2, (widgetSize.Height - imageSize.Height) / 2);
+
+				var destRect = new Rectangle(Point.Round(location), Size.Truncate(imageSize));
+				graphics.DrawImage(h.image, destRect);
 			}
 		}
+		
+#else
+
+
+
+		public void HandleDrawn(object o, Gtk.DrawnArgs args)
+			{
+				var h = Handler;
+
+
+
+				using (var pc = h.Control.CreatePangoContext ()) {
+					var handler = new GraphicsHandler (args.Cr, pc, false);
+					if (h.image == null)
+						return;
+					using (var graphics = new Graphics (handler)) {
+
+						var widgetSize = new Size (h.Control.Allocation.Width, h.Control.Allocation.Height);
+						var imageSize = (SizeF)h.image.Size;
+						var scaleWidth = widgetSize.Width / imageSize.Width;
+						var scaleHeight = widgetSize.Height / imageSize.Height;
+						imageSize *= Math.Min (scaleWidth, scaleHeight);
+						var location = new PointF ((widgetSize.Width - imageSize.Width) / 2, (widgetSize.Height - imageSize.Height) / 2);
+
+						var destRect = new Rectangle (Point.Round (location), Size.Truncate (imageSize));
+						graphics.DrawImage (h.image, destRect);
+					}
+				}
+			}	
+		
+#endif
+		}
+
 
 		public override Size Size
 		{
