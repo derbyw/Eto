@@ -79,9 +79,32 @@ namespace Eto.GtkSharp.Forms.Controls
 				var h = Handler;
 
 
+				if (Gtk.Global.MinorVersion >= 18) {
+					using (var pc = h.Control.CreatePangoContext ()) {
+						var handler = new GraphicsHandler (args.Cr, pc, false);
 
-				using (var pc = h.Control.CreatePangoContext ()) {
-					var handler = new GraphicsHandler (args.Cr, pc, false);
+						if (h.image == null)
+							return;
+						using (var graphics = new Graphics (handler)) {
+
+							var widgetSize = new Size (h.Control.Allocation.Width, h.Control.Allocation.Height);
+							var imageSize = (SizeF)h.image.Size;
+							var scaleWidth = widgetSize.Width / imageSize.Width;
+							var scaleHeight = widgetSize.Height / imageSize.Height;
+							imageSize *= Math.Min (scaleWidth, scaleHeight);
+							var location = new PointF ((widgetSize.Width - imageSize.Width) / 2, (widgetSize.Height - imageSize.Height) / 2);
+
+							var destRect = new Rectangle (Point.Round (location), Size.Truncate (imageSize));
+							graphics.DrawImage (h.image, destRect);
+						}
+					}
+				} else {
+					// the "stock" v 3.0.0.0 gtk-sharp3 on pre 18.x ubuntu is ancient and has a few oddities
+					// -- among them apparently the pango context is "auto Disposed" 
+					// newer gtk-sharp code will leak badly here					
+				
+					var handler = new GraphicsHandler (args.Cr, h.Control.CreatePangoContext (), false);
+
 					if (h.image == null)
 						return;
 					using (var graphics = new Graphics (handler)) {
@@ -96,9 +119,8 @@ namespace Eto.GtkSharp.Forms.Controls
 						var destRect = new Rectangle (Point.Round (location), Size.Truncate (imageSize));
 						graphics.DrawImage (h.image, destRect);
 					}
-				}
-			}	
-		
+				}				
+			}			
 #endif
 		}
 
